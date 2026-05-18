@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { getSession } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -9,7 +11,13 @@ import {
   Users,
 } from "lucide-react";
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  // セッションが有効なら自動的にダッシュボードへ
+  const session = await getSession();
+  if (session) {
+    redirect("/dashboard");
+  }
+
   return (
     <div className="min-h-screen bg-white flex flex-col">
       {/* ヘッダー */}
