@@ -2,20 +2,65 @@
 
 エンジニアのコミット内容を非エンジニアにも分かる言葉に翻訳するWebアプリ
 
-## セットアップ手順
+## ローカル起動手順
 
-1. リポジトリをclone
-2. 依存ライブラリインストール: `npm install`
-3. `.env.local.example` を `.env.local` にコピー（中身は後で各担当が埋める）
-4. 開発サーバー起動: `npm run dev`
-5. ブラウザで http://localhost:3000 にアクセス
+### 1. リポジトリをクローン
+
+```bash
+git clone <リポジトリURL>
+cd clearcode   # ← このディレクトリに入ってから作業してください
+```
+
+### 2. 依存ライブラリをインストール
+
+```bash
+npm install
+```
+
+### 3. 環境変数を設定
+
+```bash
+cp .env.local.example .env.local
+```
+
+`.env.local` を開き、各自の担当箇所のキーを埋めてください。  
+**現時点では空のままでも起動できます。**
+
+### 4. 開発サーバーを起動
+
+```bash
+npm run dev
+```
+
+### 5. ブラウザでアクセス
+
+```
+http://localhost:3000
+```
+
+---
+
+## コマンド一覧
+
+| コマンド | 説明 |
+|---|---|
+| `npm run dev` | 開発サーバー起動（ホットリロードあり） |
+| `npm run build` | 本番用ビルド |
+| `npm run start` | ビルド済みを本番モードで起動 |
+| `npm run lint` | ESLint によるコードチェック |
+
+---
 
 ## チーム構成と担当
 
-- **A**: バックエンドコア（Webhook受信、コミット処理、要約処理の統合）
-- **B**: AIプロンプト（Gemini API、プロンプト設計）
-- **C**: フロントエンド（画面、UIコンポーネント）
-- **D**: 外部連携（OAuth、Slack、認証・セッション、暗号化）
+| 担当 | 役割 | 主な担当ファイル |
+|---|---|---|
+| **A** | バックエンドコア | `lib/services/`, `lib/supabase.ts` |
+| **B** | AIプロンプト | `lib/prompts/`, `lib/gemini.ts` |
+| **C** | フロントエンド | `app/dashboard/`, `components/` |
+| **D** | 外部連携 | `lib/auth.ts`, `lib/github.ts`, `lib/slack.ts`, `middleware.ts` |
+
+---
 
 ## ディレクトリ構成
 
@@ -36,21 +81,27 @@ clearcode/
 │   │       ├── slack/page.tsx          # Slack連携
 │   │       └── commits/[sha]/page.tsx  # コミット詳細
 │   └── api/                            # APIルート（全て501を返す）
-├── lib/                                # 外部サービス連携（全て空）
+├── lib/                                # 外部サービス連携（全て空・要実装）
 ├── components/                         # UIコンポーネント
 ├── types/                              # 型定義
+├── supabase/
+│   └── schema.sql                      # DB構築用SQL
 └── middleware.ts                       # 認証ミドルウェア（未実装）
 ```
 
+---
+
 ## 動作確認
 
-以下のURLにアクセスして全画面が表示されることを確認してください:
+起動後、以下のURLが全て表示されることを確認してください:
 
-- http://localhost:3000 （ランディング）
-- http://localhost:3000/dashboard （ホーム）
-- http://localhost:3000/dashboard/connect-github
-- http://localhost:3000/dashboard/settings
-- http://localhost:3000/dashboard/repositories/test-id
-- http://localhost:3000/dashboard/repositories/test-id/slack
-- http://localhost:3000/dashboard/repositories/test-id/commits/test-sha
-- http://localhost:3000/api/auth/me （501 JSONが返る）
+| URL | 期待される結果 |
+|---|---|
+| http://localhost:3000 | ランディングページ |
+| http://localhost:3000/dashboard | ホーム画面 |
+| http://localhost:3000/dashboard/connect-github | GitHub連携ページ |
+| http://localhost:3000/dashboard/settings | 設定ページ |
+| http://localhost:3000/dashboard/repositories/test-id | リポジトリ詳細 |
+| http://localhost:3000/dashboard/repositories/test-id/slack | Slack連携 |
+| http://localhost:3000/dashboard/repositories/test-id/commits/test-sha | コミット詳細 |
+| http://localhost:3000/api/auth/me | `{"message":"Not implemented yet"}` (501) |
