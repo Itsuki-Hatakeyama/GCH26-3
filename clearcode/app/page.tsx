@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Sparkles,
@@ -10,6 +9,8 @@ import {
   Briefcase,
   Users,
 } from "lucide-react";
+import LoginForm from "@/components/LoginForm";
+import { Button } from "@/components/ui/button";
 
 export default async function LandingPage() {
   // セッションが有効なら自動的にダッシュボードへ
@@ -24,8 +25,8 @@ export default async function LandingPage() {
       <header className="sticky top-0 z-50 bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 h-16 flex justify-between items-center">
           <span className="text-2xl font-bold text-blue-600">Clearcode</span>
-          <a href="/api/auth/google/start">
-            <Button>Googleでログイン</Button>
+          <a href="#login">
+            <Button variant="outline">ログイン</Button>
           </a>
         </div>
       </header>
@@ -43,11 +44,9 @@ export default async function LandingPage() {
             <br className="hidden sm:block" />
             Slackで非エンジニアにも届く。
           </p>
-          <a href="/api/auth/google/start">
-            <Button size="lg" className="text-base px-8">
-              Googleでログインして始める
-            </Button>
-          </a>
+          <div id="login">
+            <LoginForm />
+          </div>
 
           {/* イメージプレースホルダー */}
           <div className="mt-16 mx-auto max-w-3xl rounded-2xl shadow-2xl overflow-hidden bg-gradient-to-br from-blue-600 to-indigo-600 h-64 flex items-center justify-center">
