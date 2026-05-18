@@ -7,20 +7,30 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <Link href="/dashboard" className="text-2xl font-bold text-blue-600">
+    <div className="min-h-screen bg-neutral-50">
+      <header className="bg-white border-b border-neutral-100 sticky top-0 z-10">
+        <div className="container mx-auto px-6 py-4 flex justify-between items-center">
+          <Link
+            href="/dashboard"
+            className="text-lg font-semibold tracking-tight text-black"
+          >
             Clearcode
           </Link>
-          <nav className="flex gap-4">
+          <nav className="flex items-center gap-1">
+            <Link href="/dashboard/connect-github">
+              <Button variant="ghost" className="text-sm text-neutral-500 hover:text-black">
+                リポジトリ追加
+              </Button>
+            </Link>
             <Link href="/dashboard/settings">
-              <Button variant="ghost">設定</Button>
+              <Button variant="ghost" className="text-sm text-neutral-500 hover:text-black">
+                設定
+              </Button>
             </Link>
           </nav>
         </div>
       </header>
-      <main className="container mx-auto px-4 py-8">{children}</main>
+      <main className="container mx-auto px-6 py-10">{children}</main>
     </div>
   );
 }
