@@ -10,6 +10,10 @@
 git clone <リポジトリURL>
 cd clearcode   # ← このディレクトリに入ってから作業してください
 ```
+## 注意
+cd clearcode
+npm install
+デレクトリが違ったらこれを使用する
 
 ### 2. 依存ライブラリをインストール
 
