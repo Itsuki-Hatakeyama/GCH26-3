@@ -11,7 +11,7 @@ const genAI = new GoogleGenerativeAI(apiKey)
 export const gemini = {
   // コミットメッセージを平易化
   simplifyMessage: async (message: string): Promise<string> => {
-    const model = genAI.getGenerativeModel({ model: 'models/gemini-1.5-flash' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
     
     const prompt = `
 あなたは技術用語を分かりやすく説明する専門家です。
@@ -29,7 +29,7 @@ export const gemini = {
   
   // テスト用のシンプルな生成
   generate: async (prompt: string): Promise<string> => {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-001' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
     const result = await model.generateContent(prompt)
     return result.response.text()
   }

@@ -9,11 +9,18 @@ export async function GET(request: NextRequest) {
     // URLパラメータを取得
     const code = request.nextUrl.searchParams.get('code');
     const state = request.nextUrl.searchParams.get('state'); // repository_id
-    
+    const slackError = request.nextUrl.searchParams.get('error');
+
+    // Slackがエラーを返した場合（ユーザーがキャンセルした場合など）
+    if (slackError) {
+      return NextResponse.redirect(
+        new URL(`/?slack_error=${encodeURIComponent(slackError)}`, request.url)
+      );
+    }
+
     if (!code) {
-      return NextResponse.json(
-        { error: 'Authorization code is missing' },
-        { status: 400 }
+      return NextResponse.redirect(
+        new URL('/?slack_error=missing_code', request.url)
       );
     }
 
