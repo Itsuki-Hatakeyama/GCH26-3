@@ -52,22 +52,23 @@ export async function processCommit(repositoryId: string, rawCommit: RawCommit):
 
   if (insertError || !commit) return
 
-  // diff取得 + Gemini要約
+  // diff取得 + Gemini要約（クォータ超過時はnull）
   const diff = await github.getCommitDiff(accessToken, repo.owner, repo.name, rawCommit.sha)
   const summary = await generateSummary(rawCommit.message, diff)
 
-  // commit_summariesに保存
-  await supabaseAdmin.from('commit_summaries').upsert(
-    {
-      commit_id: commit.id,
-      simplified_message: summary.simplified_message,
-      code_explanation: summary.code_explanation,
-      message_quality_score: summary.message_quality_score,
-      message_quality_feedback: summary.message_quality_feedback,
-      llm_model: 'gemini-2.0-flash',
-    },
-    { onConflict: 'commit_id' }
-  )
+  if (summary) {
+    await supabaseAdmin.from('commit_summaries').upsert(
+      {
+        commit_id: commit.id,
+        simplified_message: summary.simplified_message,
+        code_explanation: summary.code_explanation,
+        message_quality_score: summary.message_quality_score,
+        message_quality_feedback: summary.message_quality_feedback,
+        llm_model: 'gemini-2.0-flash',
+      },
+      { onConflict: 'commit_id' }
+    )
+  }
 
   // Slack通知
   const { data: slackIntegration } = await supabaseAdmin
@@ -78,14 +79,16 @@ export async function processCommit(repositoryId: string, rawCommit: RawCommit):
     .single()
 
   if (slackIntegration?.channel_id) {
+    const simplifiedMessage = summary?.simplified_message ?? rawCommit.message
+    const codeExplanation = summary?.code_explanation ?? '（要約生成中）'
     await sendCommitNotification({
       accessTokenEncrypted: slackIntegration.access_token_encrypted,
       channelId: slackIntegration.channel_id,
       repoName: repo.name,
       commitSha: rawCommit.sha,
       authorName: rawCommit.author.name,
-      simplifiedMessage: summary.simplified_message,
-      codeExplanation: summary.code_explanation,
+      simplifiedMessage,
+      codeExplanation,
       commitUrl: rawCommit.url,
     })
   }
