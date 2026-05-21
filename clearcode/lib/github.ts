@@ -21,6 +21,15 @@ export const github = {
     return res.json()
   },
 
+  getCommits: async (accessToken: string, owner: string, repo: string, perPage = 30) => {
+    const res = await fetch(
+      `${GITHUB_API}/repos/${owner}/${repo}/commits?per_page=${perPage}`,
+      { headers: headers(accessToken) }
+    )
+    if (!res.ok) return []
+    return res.json()
+  },
+
   getCommit: async (accessToken: string, owner: string, repo: string, sha: string) => {
     const res = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/commits/${sha}`, {
       headers: headers(accessToken),

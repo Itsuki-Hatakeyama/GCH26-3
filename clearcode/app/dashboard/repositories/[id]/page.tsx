@@ -38,6 +38,14 @@ export default function RepositoryDetailPage() {
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const [loading, setLoading] = useState(true)
+  const [syncing, setSyncing] = useState(false)
+
+  const syncCommits = useCallback(async () => {
+    setSyncing(true)
+    await fetch(`/api/repositories/${id}/sync`, { method: 'POST' })
+    await fetchCommits(1)
+    setSyncing(false)
+  }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchCommits = useCallback(async (p: number) => {
     const res = await fetch(`/api/repositories/${id}/commits?page=${p}`)
@@ -48,15 +56,18 @@ export default function RepositoryDetailPage() {
   }, [id])
 
   useEffect(() => {
-    Promise.all([
-      fetch(`/api/repositories/${id}`).then((r) => r.json()),
-      fetch(`/api/repositories/${id}/commits?unread_only=true`).then((r) => r.json()),
-      fetchCommits(1),
-    ]).then(([repoData, unreadData]) => {
-      setRepo(repoData.repository)
-      setUnreadCommits(unreadData.commits ?? [])
-      setLoading(false)
-    })
+    // 初回はGitHubから最新コミットを同期してから表示
+    fetch(`/api/repositories/${id}/sync`, { method: 'POST' }).then(() =>
+      Promise.all([
+        fetch(`/api/repositories/${id}`).then((r) => r.json()),
+        fetch(`/api/repositories/${id}/commits?unread_only=true`).then((r) => r.json()),
+        fetchCommits(1),
+      ]).then(([repoData, unreadData]) => {
+        setRepo(repoData.repository)
+        setUnreadCommits(unreadData.commits ?? [])
+        setLoading(false)
+      })
+    )
 
     // last_viewed_atを更新
     fetch(`/api/repositories/${id}/viewed`, { method: 'PATCH' })
@@ -88,6 +99,9 @@ export default function RepositoryDetailPage() {
             <p className="text-sm text-neutral-400">{repo.full_name}</p>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={syncCommits} disabled={syncing}>
+              {syncing ? '同期中...' : '↻ 同期'}
+            </Button>
             <a href={repo.html_url} target="_blank" rel="noopener noreferrer">
               <Button variant="outline" size="sm">GitHubで見る</Button>
             </a>
