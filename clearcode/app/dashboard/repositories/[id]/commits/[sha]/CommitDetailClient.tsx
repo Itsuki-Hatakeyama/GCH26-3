@@ -57,9 +57,12 @@ function parseDiff(raw: string): DiffFile[] {
   for (const line of raw.split("\n")) {
     if (line.startsWith("diff --git")) {
       if (current) files.push(current);
-      current = { filename: "", lines: [] };
+      const match = line.match(/diff --git a\/.+ b\/(.+)/);
+      current = { filename: match ? match[1].trim() : "", lines: [] };
     } else if (line.startsWith("+++ b/") && current) {
-      current.filename = line.slice(6);
+      current.filename = line.slice(6).trim();
+    } else if (line.startsWith("Binary files") && current && current.filename) {
+      current.lines.push({ type: "hunk", content: "バイナリファイル（画像など）" });
     } else if (line.startsWith("@@ ") && current) {
       const match = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
       if (match) {
@@ -101,17 +104,15 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
   const [notifyResult, setNotifyResult] = useState<string | null>(null);
 
   const fetchCommit = useCallback(async () => {
-    const [commitRes, diffRes] = await Promise.all([
-      fetch(`/api/repositories/${repositoryId}/commits?sha=${sha}`),
-      fetch(`/api/repositories/${repositoryId}/commits/${sha}`),
-    ]);
-    if (!commitRes.ok) throw new Error("コミットが見つかりません");
-    const commitData = await commitRes.json();
-    setCommit(commitData.commit);
-    if (diffRes.ok) {
-      const diffData = await diffRes.json();
-      setDiffFiles(parseDiff(diffData.diff ?? ""));
-    }
+    const res = await fetch(`/api/repositories/${repositoryId}/commits/${sha}`);
+    if (!res.ok) throw new Error("コミットが見つかりません");
+    const data = await res.json();
+    if (!data.commit) throw new Error("コミットが見つかりません");
+    const summaries = Array.isArray(data.commit.commit_summaries)
+      ? data.commit.commit_summaries
+      : data.commit.commit_summaries ? [data.commit.commit_summaries] : [];
+    setCommit({ ...data.commit, commit_summaries: summaries });
+    setDiffFiles(parseDiff(data.diff ?? ""));
   }, [repositoryId, sha]);
 
   useEffect(() => {
@@ -312,7 +313,18 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
             {activeTab === "diff" && (
               <div>
                 {diffFiles.length === 0 ? (
-                  <div className="p-6 text-center text-sm text-neutral-400">差分データがありません</div>
+                  <div className="p-6 text-center space-y-3">
+                    <p className="text-sm text-neutral-400">差分データを取得できませんでした</p>
+                    <a
+                      href={commit.html_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      GitHubで差分を確認する
+                    </a>
+                  </div>
                 ) : (
                   <div className="divide-y divide-neutral-100">
                     {diffFiles.map((file) => (

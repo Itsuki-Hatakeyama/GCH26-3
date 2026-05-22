@@ -79,6 +79,7 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
+      await fetch(`/api/repositories/${id}/sync`, { method: "POST" });
       await fetchAll(pagination.page);
     } finally {
       setRefreshing(false);
