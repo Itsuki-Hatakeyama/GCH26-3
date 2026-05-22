@@ -1,8 +1,35 @@
-export default function CommitDetailPage() {
+import { getSession } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
+import CommitDetailClient from "./CommitDetailClient";
+
+export default async function CommitDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string; sha: string }>;
+}) {
+  const session = await getSession();
+  if (!session) redirect("/");
+
+  const { id, sha } = await params;
+
+  // リポジトリ名をサーバー側で取得（パンくず表示用）
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+  const { data: repo } = await supabase
+    .from("repositories")
+    .select("name")
+    .eq("id", id)
+    .eq("user_id", session.user_id)
+    .single();
+
   return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold">コミット詳細</h1>
-      <p className="text-gray-500 mt-2">このページは実装予定です</p>
-    </div>
+    <CommitDetailClient
+      repositoryId={id}
+      sha={sha}
+      repositoryName={repo?.name ?? "リポジトリ"}
+    />
   );
 }

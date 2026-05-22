@@ -41,6 +41,26 @@ export async function GET(
   }
 
   const sp = req.nextUrl.searchParams;
+  const sha = sp.get("sha");
+
+  // sha 指定時は単一コミットを返す
+  if (sha) {
+    const { data: commit, error } = await supabase()
+      .from("commits")
+      .select("*, commit_summaries(*)")
+      .eq("repository_id", id)
+      .eq("sha", sha)
+      .single();
+
+    if (error || !commit) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "コミットが見つかりません" } },
+        { status: 404 }
+      );
+    }
+    return NextResponse.json({ commit });
+  }
+
   const page = Math.max(1, parseInt(sp.get("page") ?? "1", 10));
   const unreadOnly = sp.get("unread_only") === "true";
   const offset = (page - 1) * PAGE_SIZE;
