@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 type GitHubRepo = {
@@ -14,6 +14,14 @@ type GitHubRepo = {
 };
 
 export default function ConnectGithubPage() {
+  return (
+    <Suspense fallback={<div className="text-center py-20 text-neutral-400">読み込み中...</div>}>
+      <ConnectGithubContent />
+    </Suspense>
+  );
+}
+
+function ConnectGithubContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 

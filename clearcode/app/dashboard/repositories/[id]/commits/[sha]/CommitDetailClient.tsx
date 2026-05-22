@@ -116,7 +116,7 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
     );
   }
 
-  const s = commit.commit_summaries[0] ?? null;
+  const s = commit.commit_summaries?.[0] ?? null;
   const date = new Intl.DateTimeFormat("ja-JP", {
     year: "numeric",
     month: "long",
