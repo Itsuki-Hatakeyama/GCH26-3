@@ -12,7 +12,7 @@ export async function GET() {
 
   const { data: repos } = await supabaseAdmin
     .from('repositories')
-    .select('*')
+    .select('*, slack_integrations(channel_name, is_active)')
     .eq('user_id', session.user_id)
     .order('updated_at', { ascending: false })
 
@@ -30,7 +30,10 @@ export async function GET() {
           .gt('committed_at', repo.last_viewed_at)
         unread_count = count ?? 0
       }
-      return { ...repo, unread_count }
+      const slackArr = Array.isArray(repo.slack_integrations) ? repo.slack_integrations : []
+      const slack_integration = slackArr[0] ?? null
+      const { slack_integrations: _, ...repoData } = repo
+      return { ...repoData, unread_count, slack_integration }
     })
   )
 

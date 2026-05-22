@@ -2,6 +2,34 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getSession()
+  if (!session) {
+    return NextResponse.json({ error: { code: 'UNAUTHORIZED' } }, { status: 401 })
+  }
+
+  const { id } = await params
+
+  const { data: repo } = await supabaseAdmin
+    .from('repositories')
+    .select('id')
+    .eq('id', id)
+    .eq('user_id', session.user_id)
+    .single()
+
+  if (!repo) {
+    return NextResponse.json({ error: { code: 'NOT_FOUND' } }, { status: 404 })
+  }
+
+  const { data: integration } = await supabaseAdmin
+    .from('slack_integrations')
+    .select('workspace_id, workspace_name, channel_id, channel_name, is_active')
+    .eq('repository_id', id)
+    .single()
+
+  return NextResponse.json({ integration: integration ?? null })
+}
+
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession()
   if (!session) {

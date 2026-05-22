@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { ExternalLink, Copy, Check, RefreshCw } from "lucide-react";
+import { ExternalLink, Copy, Check, RefreshCw, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import TechBadge from "@/components/TechBadge";
 
-type Tab = "summary" | "visual" | "code";
+type Tab = "summary" | "visual" | "code" | "diff";
 
 interface Technology {
   name: string;
@@ -36,6 +36,51 @@ interface CommitDetail {
   commit_summaries: CommitSummary[];
 }
 
+interface DiffFile {
+  filename: string;
+  lines: DiffLine[];
+}
+
+interface DiffLine {
+  type: "added" | "removed" | "context" | "hunk";
+  content: string;
+  oldNum?: number;
+  newNum?: number;
+}
+
+function parseDiff(raw: string): DiffFile[] {
+  const files: DiffFile[] = [];
+  let current: DiffFile | null = null;
+  let oldLineNum = 0;
+  let newLineNum = 0;
+
+  for (const line of raw.split("\n")) {
+    if (line.startsWith("diff --git")) {
+      if (current) files.push(current);
+      current = { filename: "", lines: [] };
+    } else if (line.startsWith("+++ b/") && current) {
+      current.filename = line.slice(6);
+    } else if (line.startsWith("@@ ") && current) {
+      const match = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+      if (match) {
+        oldLineNum = parseInt(match[1]);
+        newLineNum = parseInt(match[2]);
+      }
+      current.lines.push({ type: "hunk", content: line });
+    } else if (current && current.filename) {
+      if (line.startsWith("+") && !line.startsWith("+++")) {
+        current.lines.push({ type: "added", content: line.slice(1), newNum: newLineNum++ });
+      } else if (line.startsWith("-") && !line.startsWith("---")) {
+        current.lines.push({ type: "removed", content: line.slice(1), oldNum: oldLineNum++ });
+      } else if (!line.startsWith("\\") && !line.startsWith("---") && !line.startsWith("+++")) {
+        current.lines.push({ type: "context", content: line.slice(1), oldNum: oldLineNum++, newNum: newLineNum++ });
+      }
+    }
+  }
+  if (current) files.push(current);
+  return files.filter((f) => f.filename);
+}
+
 interface Props {
   repositoryId: string;
   sha: string;
@@ -44,6 +89,7 @@ interface Props {
 
 export default function CommitDetailClient({ repositoryId, sha, repositoryName }: Props) {
   const [commit, setCommit] = useState<CommitDetail | null>(null);
+  const [diffFiles, setDiffFiles] = useState<DiffFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("summary");
@@ -51,12 +97,21 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
   const [copied, setCopied] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [regenerated, setRegenerated] = useState(false);
+  const [notifying, setNotifying] = useState(false);
+  const [notifyResult, setNotifyResult] = useState<string | null>(null);
 
   const fetchCommit = useCallback(async () => {
-    const res = await fetch(`/api/repositories/${repositoryId}/commits?sha=${sha}`);
-    if (!res.ok) throw new Error("コミットが見つかりません");
-    const data = await res.json();
-    setCommit(data.commit);
+    const [commitRes, diffRes] = await Promise.all([
+      fetch(`/api/repositories/${repositoryId}/commits?sha=${sha}`),
+      fetch(`/api/repositories/${repositoryId}/commits/${sha}`),
+    ]);
+    if (!commitRes.ok) throw new Error("コミットが見つかりません");
+    const commitData = await commitRes.json();
+    setCommit(commitData.commit);
+    if (diffRes.ok) {
+      const diffData = await diffRes.json();
+      setDiffFiles(parseDiff(diffData.diff ?? ""));
+    }
   }, [repositoryId, sha]);
 
   useEffect(() => {
@@ -81,9 +136,7 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
     if (!commit) return;
     setRegenerating(true);
     try {
-      const res = await fetch(`/api/commits/${commit.id}/regenerate-summary`, {
-        method: "POST",
-      });
+      const res = await fetch(`/api/commits/${commit.id}/regenerate-summary`, { method: "POST" });
       if (!res.ok) throw new Error("再生成に失敗しました");
       await fetchCommit();
       setRegenerated(true);
@@ -92,6 +145,25 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
       alert(e instanceof Error ? e.message : "エラーが発生しました");
     } finally {
       setRegenerating(false);
+    }
+  };
+
+  const handleNotifySlack = async () => {
+    setNotifying(true);
+    setNotifyResult(null);
+    try {
+      const res = await fetch(`/api/repositories/${repositoryId}/commits/${sha}/notify`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setNotifyResult(data.error?.message ?? "送信に失敗しました");
+      } else {
+        setNotifyResult(`#${data.channel} に送信しました`);
+        setTimeout(() => setNotifyResult(null), 4000);
+      }
+    } finally {
+      setNotifying(false);
     }
   };
 
@@ -144,7 +216,8 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
   const tabs: { key: Tab; label: string }[] = [
     { key: "summary", label: "ひとことで" },
     { key: "visual", label: "画面の変化" },
-    { key: "code", label: "コードの変更" },
+    { key: "code", label: "コードの説明" },
+    { key: "diff", label: `差分 (${diffFiles.length}ファイル)` },
   ];
 
   return (
@@ -169,18 +242,10 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
               className="flex items-center gap-1.5 font-mono text-sm text-neutral-600 bg-neutral-100 hover:bg-neutral-200 transition-colors px-2.5 py-1 rounded-lg"
             >
               <span>{sha.slice(0, 7)}</span>
-              {copied ? (
-                <Check className="w-3.5 h-3.5 text-green-600" />
-              ) : (
-                <Copy className="w-3.5 h-3.5" />
-              )}
+              {copied ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
             </button>
           </div>
-          <a
-            href={commit.html_url}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+          <a href={commit.html_url} target="_blank" rel="noopener noreferrer">
             <Button variant="outline" size="sm" className="gap-1.5 rounded-full text-xs">
               <ExternalLink className="w-3 h-3" />
               GitHubで見る
@@ -197,7 +262,7 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
       {/* タブ */}
       {s ? (
         <div className="space-y-4">
-          <div className="flex gap-1 bg-neutral-100 p-1 rounded-xl w-fit">
+          <div className="flex gap-1 bg-neutral-100 p-1 rounded-xl w-fit flex-wrap">
             {tabs.map((tab) => (
               <button
                 key={tab.key}
@@ -213,9 +278,9 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
             ))}
           </div>
 
-          <div className="bg-white rounded-xl border border-neutral-100 p-6 min-h-36">
+          <div className="bg-white rounded-xl border border-neutral-100 min-h-36">
             {activeTab === "summary" && (
-              <div className="space-y-2">
+              <div className="p-6 space-y-2">
                 <p className="text-xl font-semibold text-gray-900 leading-relaxed">
                   {s.simplified_message}
                 </p>
@@ -224,7 +289,7 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
             )}
 
             {activeTab === "visual" && (
-              <div>
+              <div className="p-6">
                 {s.frontend_changes ? (
                   <div className="space-y-2">
                     <p className="text-xs font-medium text-purple-700 mb-2">画面の変化</p>
@@ -239,15 +304,111 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
             )}
 
             {activeTab === "code" && (
-              <div className="space-y-2">
+              <div className="p-6 space-y-2">
                 <p className="text-sm text-gray-700 leading-relaxed">{s.code_explanation}</p>
+              </div>
+            )}
+
+            {activeTab === "diff" && (
+              <div>
+                {diffFiles.length === 0 ? (
+                  <div className="p-6 text-center text-sm text-neutral-400">差分データがありません</div>
+                ) : (
+                  <div className="divide-y divide-neutral-100">
+                    {diffFiles.map((file) => (
+                      <div key={file.filename}>
+                        <div className="px-4 py-2 bg-neutral-50 text-xs font-mono text-neutral-700 border-b border-neutral-100">
+                          {file.filename}
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs font-mono border-collapse">
+                            <tbody>
+                              {file.lines.map((line, i) => {
+                                if (line.type === "hunk") {
+                                  return (
+                                    <tr key={i} className="bg-blue-50">
+                                      <td className="w-10 px-2 text-right text-neutral-300 select-none border-r border-neutral-100 py-0.5" />
+                                      <td className="w-10 px-2 text-right text-neutral-300 select-none border-r border-neutral-100 py-0.5" />
+                                      <td className="px-3 py-0.5 text-blue-400">{line.content}</td>
+                                    </tr>
+                                  );
+                                }
+                                return (
+                                  <tr
+                                    key={i}
+                                    className={
+                                      line.type === "added" ? "bg-green-50" :
+                                      line.type === "removed" ? "bg-red-50" : "bg-white"
+                                    }
+                                  >
+                                    <td className="w-10 px-2 text-right text-neutral-300 select-none border-r border-neutral-100 py-0.5">
+                                      {line.type !== "added" ? line.oldNum : ""}
+                                    </td>
+                                    <td className="w-10 px-2 text-right text-neutral-300 select-none border-r border-neutral-100 py-0.5">
+                                      {line.type !== "removed" ? line.newNum : ""}
+                                    </td>
+                                    <td className={`px-3 py-0.5 whitespace-pre ${
+                                      line.type === "added" ? "text-green-800" :
+                                      line.type === "removed" ? "text-red-800" : "text-neutral-700"
+                                    }`}>
+                                      <span className="select-none mr-1 text-neutral-400">
+                                        {line.type === "added" ? "+" : line.type === "removed" ? "-" : " "}
+                                      </span>
+                                      {line.content}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
         </div>
       ) : (
-        <div className="bg-neutral-50 rounded-xl border border-neutral-100 p-8 text-center">
+        <div className="bg-neutral-50 rounded-xl border border-neutral-100 p-8 text-center space-y-3">
           <p className="text-sm text-neutral-400">要約がまだ生成されていません</p>
+          {diffFiles.length > 0 && (
+            <div className="mt-4">
+              <p className="text-xs text-neutral-400 mb-3">差分のみ表示</p>
+              <div className="text-left rounded-xl border border-neutral-200 overflow-hidden">
+                {diffFiles.slice(0, 3).map((file) => (
+                  <div key={file.filename}>
+                    <div className="px-4 py-2 bg-neutral-50 text-xs font-mono text-neutral-700 border-b border-neutral-100">
+                      {file.filename}
+                    </div>
+                    <div className="overflow-x-auto max-h-48">
+                      <table className="w-full text-xs font-mono border-collapse">
+                        <tbody>
+                          {file.lines.slice(0, 30).map((line, i) => (
+                            <tr key={i} className={
+                              line.type === "added" ? "bg-green-50" :
+                              line.type === "removed" ? "bg-red-50" :
+                              line.type === "hunk" ? "bg-blue-50" : "bg-white"
+                            }>
+                              <td className={`px-3 py-0.5 whitespace-pre text-xs font-mono ${
+                                line.type === "added" ? "text-green-800" :
+                                line.type === "removed" ? "text-red-800" :
+                                line.type === "hunk" ? "text-blue-400" : "text-neutral-700"
+                              }`}>
+                                {line.type === "added" ? "+ " : line.type === "removed" ? "- " : "  "}
+                                {line.content}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -304,7 +465,7 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
       </div>
 
       {/* アクション */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Button
           variant="outline"
           className="rounded-full gap-2"
@@ -314,6 +475,26 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
           <RefreshCw className={`w-4 h-4 ${regenerating ? "animate-spin" : ""}`} />
           {regenerating ? "生成中..." : regenerated ? "再生成しました" : "要約を再生成"}
         </Button>
+
+        <Button
+          variant="outline"
+          className="rounded-full gap-2"
+          onClick={handleNotifySlack}
+          disabled={notifying}
+        >
+          <Send className="w-4 h-4" />
+          {notifying ? "送信中..." : "Slackに送信"}
+        </Button>
+
+        {notifyResult && (
+          <span className={`text-xs px-3 py-1 rounded-full ${
+            notifyResult.includes("送信しました")
+              ? "bg-green-100 text-green-700"
+              : "bg-red-100 text-red-700"
+          }`}>
+            {notifyResult}
+          </span>
+        )}
       </div>
     </div>
   );

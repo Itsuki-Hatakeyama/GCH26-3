@@ -29,12 +29,12 @@ function SlackPageContent() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // リポジトリのSlack連携状態を取得
-    fetch(`/api/repositories/${id}`)
+    // Slack連携状態を取得
+    fetch(`/api/repositories/${id}/slack`)
       .then((r) => r.json())
       .then((d) => {
-        if (d.repository?.slack_integration?.workspace_name) {
-          setIntegration(d.repository.slack_integration)
+        if (d.integration?.workspace_name) {
+          setIntegration(d.integration)
           // チャンネル一覧取得
           return fetch(`/api/slack/channels?repository_id=${id}`)
             .then((r) => r.json())
