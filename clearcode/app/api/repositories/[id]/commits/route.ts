@@ -38,7 +38,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     query = query.gt('committed_at', repo.last_viewed_at)
   }
 
-  const { data: commits, count } = await query
+  const { data: commits, error: commitsError, count } = await query
+
+  if (commitsError) {
+    console.error('[commits] query error:', commitsError)
+    return NextResponse.json({ error: { code: 'DB_ERROR', message: commitsError.message } }, { status: 500 })
+  }
+
+  console.log(`[commits] repo=${id} page=${page} found=${commits?.length ?? 0}`)
 
   return NextResponse.json({
     commits: commits ?? [],

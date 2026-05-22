@@ -42,13 +42,18 @@ export default function RepositoryDetailPage() {
 
   const syncCommits = useCallback(async () => {
     setSyncing(true)
-    await fetch(`/api/repositories/${id}/sync`, { method: 'POST' })
+    const res = await fetch(`/api/repositories/${id}/sync`, { method: 'POST' })
+    if (!res.ok) console.error('sync failed', res.status, await res.text())
     await fetchCommits(1)
     setSyncing(false)
   }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchCommits = useCallback(async (p: number) => {
     const res = await fetch(`/api/repositories/${id}/commits?page=${p}`)
+    if (!res.ok) {
+      console.error('commits fetch failed', res.status, await res.text())
+      return
+    }
     const data = await res.json()
     if (p === 1) setCommits(data.commits ?? [])
     else setCommits((prev) => [...prev, ...(data.commits ?? [])])
@@ -56,18 +61,39 @@ export default function RepositoryDetailPage() {
   }, [id])
 
   useEffect(() => {
-    // 初回はGitHubから最新コミットを同期してから表示
-    fetch(`/api/repositories/${id}/sync`, { method: 'POST' }).then(() =>
-      Promise.all([
-        fetch(`/api/repositories/${id}`).then((r) => r.json()),
-        fetch(`/api/repositories/${id}/commits?unread_only=true`).then((r) => r.json()),
-        fetchCommits(1),
-      ]).then(([repoData, unreadData]) => {
-        setRepo(repoData.repository)
-        setUnreadCommits(unreadData.commits ?? [])
+    const load = async () => {
+      // 初回はGitHubから最新コミットを同期してから表示
+      const syncRes = await fetch(`/api/repositories/${id}/sync`, { method: 'POST' })
+      if (!syncRes.ok) {
+        console.error('sync failed', syncRes.status, await syncRes.text())
+      }
+
+      const [repoRes, unreadRes] = await Promise.all([
+        fetch(`/api/repositories/${id}`),
+        fetch(`/api/repositories/${id}/commits?unread_only=true`),
+      ])
+
+      if (!repoRes.ok) {
+        console.error('repo fetch failed', repoRes.status, await repoRes.text())
         setLoading(false)
-      })
-    )
+        return
+      }
+
+      const [repoData, unreadData] = await Promise.all([
+        repoRes.json(),
+        unreadRes.ok ? unreadRes.json() : Promise.resolve({ commits: [] }),
+      ])
+
+      setRepo(repoData.repository)
+      setUnreadCommits(unreadData.commits ?? [])
+      await fetchCommits(1)
+      setLoading(false)
+    }
+
+    load().catch((err) => {
+      console.error('load error', err)
+      setLoading(false)
+    })
 
     // last_viewed_atを更新
     fetch(`/api/repositories/${id}/viewed`, { method: 'PATCH' })

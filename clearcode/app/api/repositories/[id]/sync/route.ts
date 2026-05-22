@@ -36,6 +36,12 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const accessToken = await decrypt(integration.access_token_encrypted)
   const commits = await github.getCommits(accessToken, repo.owner, repo.name, 30)
 
+  console.log(`[sync] repo=${repo.owner}/${repo.name} commits_from_github=${commits.length}`)
+
+  if (commits.length === 0) {
+    return NextResponse.json({ synced: 0 })
+  }
+
   const rows = commits.map((c: {
     sha: string
     commit: { message: string; author: { name: string; email: string; date: string } }
@@ -50,13 +56,17 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     html_url: c.html_url,
   }))
 
-  const { error } = await supabaseAdmin
+  const { error, data: upserted } = await supabaseAdmin
     .from('commits')
     .upsert(rows, { onConflict: 'repository_id,sha' })
+    .select('id')
+
+  console.log(`[sync] upsert result: count=${upserted?.length ?? 0} error=${JSON.stringify(error)}`)
 
   if (error) {
-    return NextResponse.json({ error: { code: 'DB_ERROR', message: 'コミット保存に失敗しました' } }, { status: 500 })
+    console.error('[sync] DB error:', error)
+    return NextResponse.json({ error: { code: 'DB_ERROR', message: 'コミット保存に失敗しました', detail: error.message } }, { status: 500 })
   }
 
-  return NextResponse.json({ synced: rows.length })
+  return NextResponse.json({ synced: rows.length, saved: upserted?.length ?? 0 })
 }
