@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSession } from "@/lib/auth";
-import { summaryService } from "@/lib/services/summary-service";
+import { generateSummary } from "@/lib/services/summary-service";
 
 function supabase() {
   return createClient(
@@ -41,7 +41,14 @@ export async function POST(
 
   // diff は crypto.ts / github.ts 実装後に追加予定（担当: D）
   // 現時点はコミットメッセージのみで生成
-  const result = await summaryService.generate(commit.message, "");
+  const result = await generateSummary(commit.message, "");
+
+  if (!result) {
+    return NextResponse.json(
+      { error: { code: "QUOTA_EXCEEDED", message: "Geminiクォータ超過のため生成できませんでした" } },
+      { status: 503 }
+    );
+  }
 
   const { error: upsertError } = await supabase()
     .from("commit_summaries")

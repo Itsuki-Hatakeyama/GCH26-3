@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 
 export async function POST() {
-  return NextResponse.json(
-    { message: "Not implemented yet", endpoint: "POST /api/auth/logout" },
-    { status: 501 }
-  );
+  const cookieStore = await cookies()
+  cookieStore.delete('session')
+  return NextResponse.json({ ok: true })
 }

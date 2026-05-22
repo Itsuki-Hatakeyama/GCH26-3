@@ -1,31 +1,14 @@
-const MAX_DIFF_CHARS = 8000;
+export function buildExplainCodePrompt(diff: string, message: string): string {
+  const diffSnippet = diff.slice(0, 3000)
+  return `あなたはエンジニアの作業内容を非エンジニアに伝える専門家です。
+以下のコード変更（diff）とコミットメッセージをもとに、プログラミング知識がない人でも理解できる日本語2〜4文の説明を書いてください。
+「どのファイルで」「何が変わったか」「それによりユーザーや機能にどんな影響があるか」を含めてください。
+説明文のみを出力してください。
 
-export function buildExplainCodePrompt(commitMessage: string, diff: string): string {
-  const truncatedDiff =
-    diff.length > MAX_DIFF_CHARS
-      ? diff.slice(0, MAX_DIFF_CHARS) + "\n... (長すぎるため省略)"
-      : diff;
+コミットメッセージ: ${message}
 
-  return `
-あなたはエンジニアのコード変更内容を、プログラミング未経験者に分かりやすく説明する専門家です。
+コード差分:
+${diffSnippet}
 
-## 指示
-以下のコミットメッセージとコード差分（diff）をもとに、このコミットで「何が変わったか」を日本語で説明してください。
-
-## ルール
-- 専門用語・英語の変数名は使わないか、使う場合は日本語で補足する
-- 変更の「機能・動作」の変化にフォーカスし、コードの詳細には踏み込まない
-- 3〜5文程度にまとめる
-
-## コミットメッセージ
-${commitMessage}
-
-## コード差分
-\`\`\`
-${truncatedDiff}
-\`\`\`
-
-## 出力形式
-説明文のみを返してください（「以下が説明です」などの前置きは不要）。
-`.trim();
+説明:`
 }
