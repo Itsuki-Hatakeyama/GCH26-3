@@ -24,30 +24,32 @@ export default function ConnectGithubPage() {
 function ConnectGithubContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-
-  const isConnected = searchParams.get("github") === "connected";
   const errorCode = searchParams.get("error");
 
+  const [isGithubConnected, setIsGithubConnected] = useState<boolean | null>(null);
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<number[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isConnected) return;
-    setLoading(true);
     fetch("/api/github/repositories")
-      .then((res) => res.json())
-      .then((data) => {
-        setRepos(data.repositories ?? []);
-        setLoading(false);
+      .then(async (res) => {
+        const data = await res.json();
+        if (res.ok) {
+          setIsGithubConnected(true);
+          setRepos(data.repositories ?? []);
+        } else {
+          setIsGithubConnected(false);
+          if (data.error?.code !== "NOT_CONNECTED") {
+            setFetchError("リポジトリの取得に失敗しました");
+          }
+        }
       })
-      .catch(() => {
-        setFetchError("リポジトリの取得に失敗しました");
-        setLoading(false);
-      });
-  }, [isConnected]);
+      .catch(() => setIsGithubConnected(false))
+      .finally(() => setLoading(false));
+  }, []);
 
   const filtered = repos.filter((r) =>
     r.name.toLowerCase().includes(search.toLowerCase())
@@ -75,8 +77,12 @@ function ConnectGithubContent() {
     }
   };
 
-  // フェーズA: GitHub未連携
-  if (!isConnected) {
+  if (loading) {
+    return <div className="text-center py-20 text-neutral-400">読み込み中...</div>;
+  }
+
+  // Phase A: GitHub未連携
+  if (!isGithubConnected) {
     return (
       <div className="max-w-lg mx-auto px-6 py-10">
         <button
@@ -126,7 +132,7 @@ function ConnectGithubContent() {
     );
   }
 
-  // フェーズB: リポジトリ選択
+  // Phase B: リポジトリ選択
   return (
     <div className="max-w-lg mx-auto px-6 py-10">
       <button
@@ -164,9 +170,7 @@ function ConnectGithubContent() {
         )}
 
         <div className="flex flex-col gap-1 max-h-72 overflow-y-auto mb-4">
-          {loading ? (
-            <div className="text-center py-8 text-sm text-gray-400">読み込み中...</div>
-          ) : filtered.length === 0 ? (
+          {filtered.length === 0 ? (
             <div className="text-center py-8 text-sm text-gray-400">
               リポジトリが見つかりません
             </div>

@@ -54,11 +54,19 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
     [id, fetchCommits]
   );
 
-  // 初回マウント
+  const syncAndFetch = useCallback(
+    async (page = 1) => {
+      await fetch(`/api/repositories/${id}/sync`, { method: "POST" });
+      await fetchAll(page);
+    },
+    [id, fetchAll]
+  );
+
+  // 初回マウント: GitHub から sync してから表示
   useEffect(() => {
     (async () => {
       try {
-        await fetchAll();
+        await syncAndFetch();
         await fetch(`/api/repositories/${id}/viewed`, { method: "PATCH" });
       } catch (e) {
         setError(e instanceof Error ? e.message : "エラーが発生しました");
@@ -66,7 +74,7 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
         setLoading(false);
       }
     })();
-  }, [id, fetchAll]);
+  }, [id, syncAndFetch]);
 
   // 30秒ポーリング
   useEffect(() => {
@@ -79,7 +87,7 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await fetchAll(pagination.page);
+      await syncAndFetch(pagination.page);
     } finally {
       setRefreshing(false);
     }

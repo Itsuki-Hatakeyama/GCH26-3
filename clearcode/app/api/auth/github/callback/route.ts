@@ -1,55 +1,75 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth'
-import { github } from '@/lib/github'
-import { encrypt } from '@/lib/crypto'
-import { supabaseAdmin } from '@/lib/supabase'
+import { NextRequest, NextResponse } from "next/server";
+import { getSession } from "@/lib/auth";
+import { encrypt } from "@/lib/crypto";
+import { supabaseAdmin } from "@/lib/supabase";
 
-export async function GET(req: NextRequest) {
-  const session = await getSession()
+export async function GET(request: NextRequest) {
+  const session = await getSession();
+  console.log("session:", session);
+
   if (!session) {
-    return NextResponse.redirect(new URL('/', req.url))
+    console.log("→ セッションなし、トップへリダイレクト");
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/`);
   }
 
-  const code = req.nextUrl.searchParams.get('code')
-  const error = req.nextUrl.searchParams.get('error')
+  const code = request.nextUrl.searchParams.get("code");
+  console.log("code:", code);
 
-  if (error || !code) {
-    return NextResponse.redirect(new URL('/dashboard/connect-github?error=cancelled', req.url))
+  if (!code) {
+    return NextResponse.redirect(
+      `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/connect-github?error=no_code`
+    );
   }
 
-  // GitHubからアクセストークン取得
-  const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+  const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
     body: JSON.stringify({
-      client_id: process.env.GITHUB_CLIENT_ID,
-      client_secret: process.env.GITHUB_CLIENT_SECRET,
+      client_id: process.env.GITHUB_CLIENT_ID!,
+      client_secret: process.env.GITHUB_CLIENT_SECRET!,
       code,
       redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/github/callback`,
     }),
-  })
+  });
 
-  const tokenData = await tokenRes.json()
-  if (!tokenData.access_token) {
-    return NextResponse.redirect(new URL('/dashboard/connect-github?error=token_failed', req.url))
+  const tokenData = await tokenRes.json();
+  console.log("tokenData:", tokenData);
+
+  if (tokenData.error || !tokenData.access_token) {
+    return NextResponse.redirect(
+      `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/connect-github?error=token_failed`
+    );
   }
 
-  const accessToken: string = tokenData.access_token
+  const userRes = await fetch("https://api.github.com/user", {
+    headers: { Authorization: `Bearer ${tokenData.access_token}` },
+  });
+  const githubUser = await userRes.json();
+  console.log("githubUser:", githubUser.login);
 
-  // GitHubユーザー情報取得
-  const ghUser = await github.getUser(accessToken)
-  const encryptedToken = await encrypt(accessToken)
+  const encryptedToken = await encrypt(tokenData.access_token);
 
-  // github_integrationsにUPSERT
-  await supabaseAdmin.from('github_integrations').upsert(
-    {
-      user_id: session.user_id,
-      github_user_id: String(ghUser.id),
-      github_username: ghUser.login,
-      access_token_encrypted: encryptedToken,
-    },
-    { onConflict: 'user_id' }
-  )
 
-  return NextResponse.redirect(new URL('/dashboard/connect-github', req.url))
+  const { error } = await supabaseAdmin.from("github_integrations").upsert({
+    user_id: session.user_id,
+    github_user_id: String(githubUser.id),
+    github_username: githubUser.login,
+    access_token_encrypted: encryptedToken,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "user_id" });
+
+  console.log("DB error:", error);
+
+  if (error) {
+    return NextResponse.redirect(
+      `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/connect-github?error=db_failed`
+    );
+  }
+
+  return NextResponse.redirect(
+    `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/connect-github?github=connected`
+  );
 }

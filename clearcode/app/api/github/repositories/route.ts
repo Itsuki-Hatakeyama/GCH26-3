@@ -23,5 +23,5 @@ export async function GET() {
   const accessToken = await decrypt(integration.access_token_encrypted)
   const repos = await github.getRepositories(accessToken)
 
-  return NextResponse.json({ repos, github_username: integration.github_username })
+  return NextResponse.json({ repositories: repos, github_username: integration.github_username })
 }

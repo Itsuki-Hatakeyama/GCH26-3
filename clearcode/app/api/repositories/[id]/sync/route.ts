@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { github } from '@/lib/github'
 import { decrypt } from '@/lib/crypto'
+import { generateSummary } from '@/lib/services/summary-service'
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession()
@@ -66,6 +67,30 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   if (error) {
     console.error('[sync] DB error:', error)
     return NextResponse.json({ error: { code: 'DB_ERROR', message: 'コミット保存に失敗しました', detail: error.message } }, { status: 500 })
+  }
+
+  // 要約がまだないコミットに対して Gemini で生成（最新5件のみ、レート制限対策）
+  const commitIds = (upserted ?? []).map((r) => r.id)
+  if (commitIds.length > 0) {
+    const { data: existingSummaries } = await supabaseAdmin
+      .from('commit_summaries')
+      .select('commit_id')
+      .in('commit_id', commitIds)
+
+    const alreadySummarized = new Set((existingSummaries ?? []).map((s) => s.commit_id))
+    const toSummarize = commitIds.filter((cid) => !alreadySummarized.has(cid)).slice(0, 5)
+
+    for (const commitId of toSummarize) {
+      const commitRow = rows[commitIds.indexOf(commitId)]
+      if (!commitRow) continue
+      const summary = await generateSummary(commitRow.message, '')
+      if (summary) {
+        await supabaseAdmin.from('commit_summaries').upsert(
+          { commit_id: commitId, ...summary },
+          { onConflict: 'commit_id' }
+        )
+      }
+    }
   }
 
   return NextResponse.json({ synced: rows.length, saved: upserted?.length ?? 0 })
