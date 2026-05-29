@@ -50,8 +50,8 @@ export async function GET(request: NextRequest) {
   const githubUser = await userRes.json();
   console.log("githubUser:", githubUser.login);
 
-  const encryptedToken = encrypt(tokenData.access_token);
-  
+  const encryptedToken = await encrypt(tokenData.access_token);
+
 
   const { error } = await supabaseAdmin.from("github_integrations").upsert({
     user_id: session.user_id,
