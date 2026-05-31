@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 type GitHubRepo = {
   id: number;
@@ -15,8 +15,7 @@ type GitHubRepo = {
 
 export default function ConnectGithubContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const errorCode = searchParams.get("error");
+  const [errorCode, setErrorCode] = useState<string | null>(null);
 
   const [isGithubConnected, setIsGithubConnected] = useState<boolean | null>(null);
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
@@ -24,6 +23,11 @@ export default function ConnectGithubContent() {
   const [selected, setSelected] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setErrorCode(params.get("error"));
+  }, []);
 
   useEffect(() => {
     fetch("/api/github/repositories")
