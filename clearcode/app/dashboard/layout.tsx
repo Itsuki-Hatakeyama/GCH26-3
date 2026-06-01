@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import LogoutButton from "@/components/LogoutButton";
 
 export default function DashboardLayout({
   children,
@@ -27,6 +28,7 @@ export default function DashboardLayout({
                 設定
               </Button>
             </Link>
+            <LogoutButton />
           </nav>
         </div>
       </header>
