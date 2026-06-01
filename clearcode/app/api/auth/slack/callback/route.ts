@@ -20,11 +20,13 @@ export async function GET(request: NextRequest) {
     }
 
     const tokenData = await getAccessToken(code)
+    console.log('[slack/callback] tokenData.ok:', tokenData.ok, 'team:', tokenData.team?.name)
+
     const encryptedToken = await encrypt(tokenData.access_token)
 
     // slack_integrationsに保存（チャンネルは後で設定）
     if (state) {
-      await supabaseAdmin.from('slack_integrations').upsert(
+      const { error: upsertError } = await supabaseAdmin.from('slack_integrations').upsert(
         {
           repository_id: state,
           workspace_id: tokenData.team.id,
@@ -36,6 +38,12 @@ export async function GET(request: NextRequest) {
         },
         { onConflict: 'repository_id' }
       )
+      if (upsertError) {
+        console.error('[slack/callback] upsert error:', upsertError)
+        return NextResponse.redirect(
+          new URL(`/dashboard/repositories/${state}/slack?error=db_failed`, request.url)
+        )
+      }
     }
 
     const redirectPath = state
