@@ -12,7 +12,7 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: { preventDefault(): void }) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
@@ -56,7 +56,7 @@ export default function LoginForm() {
           onChange={(e) => setEmail(e.target.value)}
           required
           disabled={loading}
-          className="w-full h-11"
+          className="w-full h-11 rounded-xl border-gray-200 bg-gray-50 placeholder:text-gray-400 focus-visible:ring-1 focus-visible:ring-gray-300 focus-visible:ring-offset-0"
         />
         <Button type="submit" size="lg" disabled={loading} className="w-full">
           {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
