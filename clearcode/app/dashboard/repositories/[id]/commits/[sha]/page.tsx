@@ -13,7 +13,6 @@ export default async function CommitDetailPage({
 
   const { id, sha } = await params;
 
-  // リポジトリ名をサーバー側で取得（パンくず表示用）
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!

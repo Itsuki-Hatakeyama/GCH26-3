@@ -23,7 +23,6 @@ export async function GET(
 
   const { id } = await params;
 
-  // repositories を介してユーザーの所有権を確認
   const { data: commit, error } = await supabase()
     .from("commits")
     .select("*, commit_summaries(*), repositories!inner(user_id)")

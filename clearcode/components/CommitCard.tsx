@@ -42,7 +42,7 @@ interface CommitCardProps {
 
 export default function CommitCard({ commit, isUnread = false }: CommitCardProps) {
   const [showOriginal, setShowOriginal] = useState(false);
-  const s = commit.commit_summaries[0] ?? null;
+  const s = commit.commit_summaries?.[0] ?? null;
 
   const date = new Intl.DateTimeFormat("ja-JP", {
     month: "short",
