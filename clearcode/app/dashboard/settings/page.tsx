@@ -18,9 +18,8 @@ export default function SettingsPage() {
           </div>
           <div className="px-5 py-5 space-y-5">
             <p className="text-sm text-gray-500 leading-relaxed">
-              Clearcodeを使うには、まず自分のGitHubアカウントで <strong className="text-gray-700">OAuth App</strong> を作成し、Clearcodeと連携させる必要があります。
+              Clearcodeを使うには、GitHubアカウントで <strong className="text-gray-700">OAuth App</strong> を作成し、デプロイ先に環境変数として登録する必要があります。
             </p>
-
             <ol className="space-y-4">
               <li className="flex gap-4">
                 <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center">1</span>
@@ -34,7 +33,6 @@ export default function SettingsPage() {
                   </p>
                 </div>
               </li>
-
               <li className="flex gap-4">
                 <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center">2</span>
                 <div>
@@ -44,8 +42,8 @@ export default function SettingsPage() {
                       <tbody>
                         {[
                           ["Application name", "Clearcode"],
-                          ["Homepage URL", "http://localhost:3001"],
-                          ["Authorization callback URL", "http://localhost:3001/api/auth/github/callback"],
+                          ["Homepage URL", "https://あなたのドメイン.vercel.app"],
+                          ["Authorization callback URL", "https://あなたのドメイン.vercel.app/api/auth/github/callback"],
                         ].map(([label, value]) => (
                           <tr key={label} className="border-b border-gray-100 last:border-0">
                             <td className="px-3 py-2 text-gray-500 bg-neutral-50 w-48">{label}</td>
@@ -58,29 +56,32 @@ export default function SettingsPage() {
                   <p className="text-xs text-gray-400 mt-1.5">入力後「Register application」をクリック</p>
                 </div>
               </li>
-
               <li className="flex gap-4">
                 <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center">3</span>
                 <div>
-                  <p className="text-sm font-medium text-gray-800">Client ID / Client Secret を .env.local に追記する</p>
-                  <div className="mt-2 bg-gray-900 rounded-lg px-4 py-3 text-xs font-mono text-gray-300 leading-relaxed">
-                    <span className="text-gray-500"># .env.local</span><br />
-                    GITHUB_CLIENT_ID=<span className="text-yellow-300">ここにClient ID</span><br />
-                    GITHUB_CLIENT_SECRET=<span className="text-yellow-300">ここにClient Secret</span>
+                  <p className="text-sm font-medium text-gray-800">デプロイ先に環境変数を登録する</p>
+                  <p className="text-sm text-gray-500 mt-0.5 mb-2">
+                    Vercel の場合は <strong className="text-gray-700">Project → Settings → Environment Variables</strong> に以下を追加してください。
+                  </p>
+                  <div className="bg-gray-900 rounded-lg px-4 py-3 text-xs font-mono text-gray-300 leading-relaxed">
+                    <span className="text-gray-500"># Vercel の Environment Variables に追加</span><br />
+                    GITHUB_CLIENT_ID=<span className="text-yellow-300">取得したClient ID</span><br />
+                    GITHUB_CLIENT_SECRET=<span className="text-yellow-300">取得したClient Secret</span><br />
+                    NEXT_PUBLIC_APP_URL=<span className="text-yellow-300">https://あなたのドメイン.vercel.app</span>
                   </div>
-                  <p className="text-xs text-gray-400 mt-1.5">変更後は開発サーバーを再起動（npm run dev）してください</p>
+                  <p className="text-xs text-gray-400 mt-1.5">
+                    ⚠️ <code className="bg-gray-100 px-1 rounded">.env.local</code> はGitにコミットされないため、デプロイ先には自動反映されません。
+                  </p>
                 </div>
               </li>
-
               <li className="flex gap-4">
                 <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center">4</span>
                 <div>
-                  <p className="text-sm font-medium text-gray-800">GitHub連携ページで認証する</p>
+                  <p className="text-sm font-medium text-gray-800">再デプロイして GitHub連携を行う</p>
                   <p className="text-sm text-gray-500 mt-0.5">
-                    <a href="/dashboard/connect-github" className="text-blue-600 hover:underline">
-                      リポジトリ追加ページ
-                    </a>
-                    {" "}に移動し、「GitHubと連携する」ボタンを押して認証を完了してください。
+                    環境変数を追加したら再デプロイし、
+                    <a href="/dashboard/connect-github" className="text-blue-600 hover:underline ml-1">リポジトリ追加ページ</a>
+                    で「GitHubと連携する」を押して認証を完了してください。
                   </p>
                 </div>
               </li>
