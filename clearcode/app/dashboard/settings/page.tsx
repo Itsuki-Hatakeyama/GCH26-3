@@ -124,7 +124,7 @@ export default function SettingsPage() {
                       <tbody>
                         <tr className="border-b border-gray-100">
                           <td className="px-3 py-2 text-gray-500 bg-neutral-50 w-48">Redirect URL</td>
-                          <td className="px-3 py-2 text-gray-800 font-mono">http://localhost:3001/api/auth/slack/callback</td>
+                          <td className="px-3 py-2 text-gray-800 font-mono">https://あなたのドメイン.vercel.app/api/auth/slack/callback</td>
                         </tr>
                         <tr className="border-b border-gray-100">
                           <td className="px-3 py-2 text-gray-500 bg-neutral-50">Bot Token Scopes</td>
@@ -140,15 +140,14 @@ export default function SettingsPage() {
               <li className="flex gap-4">
                 <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center">3</span>
                 <div>
-                  <p className="text-sm font-medium text-gray-800">Client ID / Client Secret を .env.local に追記する</p>
-                  <p className="text-sm text-gray-500 mt-0.5">「Basic Information」→「App Credentials」から取得できます。</p>
+                  <p className="text-sm font-medium text-gray-800">デプロイ先に環境変数を登録する</p>
+                  <p className="text-sm text-gray-500 mt-0.5">「Basic Information」→「App Credentials」から取得し、Vercelの Environment Variables に追加してください。</p>
                   <div className="mt-2 bg-gray-900 rounded-lg px-4 py-3 text-xs font-mono text-gray-300 leading-relaxed">
-                    <span className="text-gray-500"># .env.local</span><br />
-                    SLACK_CLIENT_ID=<span className="text-yellow-300">ここにClient ID</span><br />
-                    SLACK_CLIENT_SECRET=<span className="text-yellow-300">ここにClient Secret</span><br />
-                    SLACK_REDIRECT_URI=<span className="text-yellow-300">http://localhost:3001/api/auth/slack/callback</span>
+                    <span className="text-gray-500"># Vercel の Environment Variables に追加</span><br />
+                    SLACK_CLIENT_ID=<span className="text-yellow-300">取得したClient ID</span><br />
+                    SLACK_CLIENT_SECRET=<span className="text-yellow-300">取得したClient Secret</span><br />
+                    SLACK_REDIRECT_URI=<span className="text-yellow-300">https://あなたのドメイン.vercel.app/api/auth/slack/callback</span>
                   </div>
-                  <p className="text-xs text-gray-400 mt-1.5">変更後は開発サーバーを再起動（npm run dev）してください。</p>
                 </div>
               </li>
 
@@ -158,6 +157,64 @@ export default function SettingsPage() {
                   <p className="text-sm font-medium text-gray-800">リポジトリのSlack設定ページで連携する</p>
                   <p className="text-sm text-gray-500 mt-0.5">
                     各リポジトリの設定ページに移動し、「Slackと連携する」ボタンを押してワークスペースへの認証を完了してください。認証後、通知先チャンネルを選択できます。
+                  </p>
+                </div>
+              </li>
+            </ol>
+          </div>
+        </div>
+
+        {/* Step 3 */}
+        <div className="border border-gray-100 rounded-xl overflow-hidden mt-4">
+          <div className="bg-neutral-50 px-5 py-3 flex items-center gap-3 border-b border-gray-100">
+            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Step 3</span>
+            <span className="text-sm font-semibold text-gray-800">Slack Distribution の有効化（複数ワークスペース対応）</span>
+          </div>
+          <div className="px-5 py-5 space-y-5">
+            <p className="text-sm text-gray-500 leading-relaxed">
+              デフォルトでは Slack App は作成したワークスペース専用です。<strong className="text-gray-700">複数のワークスペースから連携できるようにする</strong>には、Distribution（配布）を有効にする必要があります。
+            </p>
+            <ol className="space-y-4">
+              <li className="flex gap-4">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center">1</span>
+                <div>
+                  <p className="text-sm font-medium text-gray-800">Manage Distribution を開く</p>
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    <a href="https://api.slack.com/apps" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">api.slack.com/apps</a>
+                    {" "}→ 該当アプリ → サイドバーの「Manage Distribution」をクリック
+                  </p>
+                </div>
+              </li>
+              <li className="flex gap-4">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center">2</span>
+                <div>
+                  <p className="text-sm font-medium text-gray-800">Privacy Policy と Support URL を設定する</p>
+                  <p className="text-sm text-gray-500 mt-0.5 mb-2">有効化の前にSlackから以下のURLの入力が求められます。</p>
+                  <div className="rounded-lg border border-gray-100 overflow-hidden text-xs">
+                    <table className="w-full">
+                      <tbody>
+                        <tr className="border-b border-gray-100">
+                          <td className="px-3 py-2 text-gray-500 bg-neutral-50 w-48">Privacy Policy URL</td>
+                          <td className="px-3 py-2 text-gray-800 font-mono">https://あなたのドメイン.vercel.app/privacy</td>
+                        </tr>
+                        <tr className="border-b border-gray-100">
+                          <td className="px-3 py-2 text-gray-500 bg-neutral-50">Support URL</td>
+                          <td className="px-3 py-2 text-gray-800 font-mono">https://あなたのドメイン.vercel.app/support</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1.5">
+                    ※ <code className="bg-gray-100 px-1 rounded">/privacy</code> と <code className="bg-gray-100 px-1 rounded">/support</code> のページはClearcodeに用意してあります。
+                  </p>
+                </div>
+              </li>
+              <li className="flex gap-4">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center">3</span>
+                <div>
+                  <p className="text-sm font-medium text-gray-800">「Activate Public Distribution」をクリックする</p>
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    上記の入力が完了するとボタンが押せるようになります。有効にすると任意のSlackワークスペースから連携できるようになります。
                   </p>
                 </div>
               </li>

@@ -14,6 +14,17 @@ interface Technology {
   language?: string;
 }
 
+const CATEGORY_STYLES: Record<string, { bg: string; text: string; border: string }> = {
+  フロントエンド:   { bg: "bg-purple-50",  text: "text-purple-700",  border: "border-purple-200" },
+  バックエンド:     { bg: "bg-blue-50",    text: "text-blue-700",    border: "border-blue-200"   },
+  インフラ:         { bg: "bg-orange-50",  text: "text-orange-700",  border: "border-orange-200" },
+  テスト:           { bg: "bg-green-50",   text: "text-green-700",   border: "border-green-200"  },
+  ドキュメント:     { bg: "bg-gray-50",    text: "text-gray-600",    border: "border-gray-200"   },
+  設定:             { bg: "bg-yellow-50",  text: "text-yellow-700",  border: "border-yellow-200" },
+  リファクタリング: { bg: "bg-teal-50",    text: "text-teal-700",    border: "border-teal-200"   },
+  バグ修正:         { bg: "bg-red-50",     text: "text-red-700",     border: "border-red-200"    },
+};
+
 interface CommitSummary {
   simplified_message: string;
   code_explanation: string;
@@ -23,6 +34,7 @@ interface CommitSummary {
   technology_categories: Record<string, string[]> | null;
   message_quality_score: number | null;
   message_quality_feedback: string | null;
+  change_categories: string[] | null;
 }
 
 interface CommitDetail {
@@ -258,6 +270,23 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
           <span>{date}</span>
         </div>
       </div>
+
+      {/* カテゴリバッジ */}
+      {(s?.change_categories?.length ?? 0) > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {s!.change_categories!.map((cat) => {
+            const style = CATEGORY_STYLES[cat] ?? { bg: "bg-gray-50", text: "text-gray-600", border: "border-gray-200" };
+            return (
+              <span
+                key={cat}
+                className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${style.bg} ${style.text} ${style.border}`}
+              >
+                {cat}
+              </span>
+            );
+          })}
+        </div>
+      )}
 
       {/* タブ */}
       {s ? (

@@ -2,6 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 import { buildSimplifyPrompt } from '@/lib/prompts/simplify-message'
 import { buildExplainCodePrompt } from '@/lib/prompts/explain-code'
 import { buildQualityScorePrompt } from '@/lib/prompts/quality-score'
+import { buildCategorizePrompt, type ChangeCategory } from '@/lib/prompts/categorize-change'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 const MODEL = 'gemini-2.0-flash'
@@ -40,6 +41,7 @@ export interface CommitSummary {
   code_explanation: string
   message_quality_score: number
   message_quality_feedback: string
+  change_categories: ChangeCategory[]
 }
 
 export async function generateSummary(
@@ -47,10 +49,11 @@ export async function generateSummary(
   diff: string
 ): Promise<CommitSummary | null> {
   try {
-    // 3つを順番に呼ぶ（並列だとレート制限に当たりやすい）
+    // 順番に呼ぶ（並列だとレート制限に当たりやすい）
     const simplified = await generate(buildSimplifyPrompt(commitMessage))
     const explanation = await generate(buildExplainCodePrompt(diff, commitMessage))
     const qualityRaw = await generate(buildQualityScorePrompt(commitMessage))
+    const categoriesRaw = await generate(buildCategorizePrompt(commitMessage, diff))
 
     let score = 50
     let feedback = 'コミットメッセージの品質を評価できませんでした'
@@ -62,11 +65,22 @@ export async function generateSummary(
       // JSON parse失敗時はデフォルト値
     }
 
+    let change_categories: ChangeCategory[] = []
+    try {
+      const json = JSON.parse(categoriesRaw.replace(/```json|```/g, '').trim())
+      if (Array.isArray(json.categories)) {
+        change_categories = json.categories.slice(0, 3) as ChangeCategory[]
+      }
+    } catch {
+      // JSON parse失敗時は空配列
+    }
+
     return {
       simplified_message: simplified,
       code_explanation: explanation,
       message_quality_score: score,
       message_quality_feedback: feedback,
+      change_categories,
     }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
