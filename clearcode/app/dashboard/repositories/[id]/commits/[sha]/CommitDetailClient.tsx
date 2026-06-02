@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { ExternalLink, Copy, Check, RefreshCw, Send } from "lucide-react";
+import { ExternalLink, Copy, Check, RefreshCw, Send, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import TechBadge from "@/components/TechBadge";
 
@@ -234,15 +234,24 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
 
   return (
     <div className="space-y-6">
-      {/* パンくず */}
-      <div className="flex items-center gap-2 text-sm text-neutral-400">
-        <Link href="/dashboard" className="hover:text-neutral-700 transition-colors">ホーム</Link>
-        <span>/</span>
-        <Link href={`/dashboard/repositories/${repositoryId}`} className="hover:text-neutral-700 transition-colors">
-          {repositoryName}
+      {/* ナビゲーション */}
+      <div className="flex items-center justify-between">
+        <Link
+          href={`/dashboard/repositories/${repositoryId}`}
+          className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-black transition-colors bg-white border border-neutral-200 hover:border-neutral-400 rounded-lg px-3 py-1.5"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          {repositoryName} に戻る
         </Link>
-        <span>/</span>
-        <span className="font-mono text-neutral-600">{sha.slice(0, 7)}</span>
+        <div className="flex items-center gap-1.5 text-xs text-neutral-400">
+          <Link href="/dashboard" className="hover:text-neutral-700 transition-colors">ホーム</Link>
+          <span>/</span>
+          <Link href={`/dashboard/repositories/${repositoryId}`} className="hover:text-neutral-700 transition-colors">
+            {repositoryName}
+          </Link>
+          <span>/</span>
+          <span className="font-mono text-neutral-600">{sha.slice(0, 7)}</span>
+        </div>
       </div>
 
       {/* コミット情報ヘッダー */}
@@ -524,6 +533,17 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
             {notifyResult}
           </span>
         )}
+      </div>
+
+      {/* ページ下部の戻るリンク */}
+      <div className="pt-2 border-t border-neutral-100">
+        <Link
+          href={`/dashboard/repositories/${repositoryId}`}
+          className="inline-flex items-center gap-1.5 text-sm text-neutral-400 hover:text-black transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          {repositoryName} のコミット一覧に戻る
+        </Link>
       </div>
     </div>
   );
