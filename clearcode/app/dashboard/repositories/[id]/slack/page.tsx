@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { Suspense } from 'react'
 import Link from 'next/link'
 
@@ -19,9 +19,11 @@ interface SlackIntegration {
 
 function SlackPageContent() {
   const { id } = useParams<{ id: string }>()
+  const router = useRouter()
   const [integration, setIntegration] = useState<SlackIntegration | null>(null)
   const [channels, setChannels] = useState<Channel[]>([])
   const [channelSearch, setChannelSearch] = useState('')
+  const [selected, setSelected] = useState<Channel | null>(null)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -35,21 +37,22 @@ function SlackPageContent() {
     }).finally(() => setLoading(false))
   }, [id])
 
-  const selectChannel = async (channel: Channel) => {
+  const confirmChannel = async () => {
+    if (!selected) return
     setSaving(true)
     await fetch(`/api/repositories/${id}/slack`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channel_id: channel.id, channel_name: `#${channel.name}` }),
+      body: JSON.stringify({ channel_id: selected.id, channel_name: `#${selected.name}` }),
     })
-    setIntegration({ channel_id: channel.id, channel_name: `#${channel.name}`, is_active: true })
-    setSaving(false)
+    router.push(`/dashboard/repositories/${id}`)
   }
 
   const disconnect = async () => {
     if (!confirm('Slack連携を解除しますか？')) return
     await fetch(`/api/repositories/${id}/slack`, { method: 'DELETE' })
     setIntegration(null)
+    setSelected(null)
   }
 
   const filtered = channels.filter((c) => c.name.includes(channelSearch.toLowerCase()))
@@ -67,7 +70,7 @@ function SlackPageContent() {
       <h1 className="text-xl font-semibold mb-1">Slack連携</h1>
       <p className="text-sm text-neutral-500 mb-8">通知を送るチャンネルを選択してください。</p>
 
-      {integration?.channel_id && (
+      {integration?.channel_id && !selected && (
         <div className="bg-white rounded-xl border border-neutral-100 p-5 mb-6">
           <p className="text-xs text-neutral-400 mb-1">現在の通知先チャンネル</p>
           <p className="font-medium text-black">{integration.channel_name}</p>
@@ -90,10 +93,9 @@ function SlackPageContent() {
             {filtered.map((ch) => (
               <button
                 key={ch.id}
-                onClick={() => selectChannel(ch)}
-                disabled={saving}
+                onClick={() => setSelected(ch)}
                 className={`w-full flex justify-between items-center px-4 py-3 rounded-xl border text-left text-sm transition-colors ${
-                  integration?.channel_id === ch.id
+                  selected?.id === ch.id
                     ? 'border-gray-900 bg-gray-50'
                     : 'border-neutral-100 hover:border-neutral-300'
                 }`}
@@ -105,6 +107,22 @@ function SlackPageContent() {
           </div>
         )}
       </div>
+
+      {selected && (
+        <div className="mt-6 p-4 bg-neutral-50 rounded-xl border border-neutral-100 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-neutral-400 mb-0.5">選択中</p>
+            <p className="text-sm font-medium text-black">#{selected.name}</p>
+          </div>
+          <button
+            onClick={confirmChannel}
+            disabled={saving}
+            className="bg-gray-900 text-white text-sm font-medium px-5 py-2 rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors"
+          >
+            {saving ? '保存中...' : '選択する'}
+          </button>
+        </div>
+      )}
 
       {integration && (
         <button onClick={disconnect} className="mt-8 text-xs text-red-400 hover:text-red-600 underline">
