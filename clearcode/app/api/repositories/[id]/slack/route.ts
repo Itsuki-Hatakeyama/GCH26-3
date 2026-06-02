@@ -37,7 +37,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   const { id } = await params
-  const { channel_id, channel_name } = await req.json()
+  const { channel_id, channel_name, method } = await req.json()
 
   if (!channel_id) {
     return NextResponse.json({ error: { code: 'INVALID_REQUEST', message: 'channel_idが必要です' } }, { status: 400 })
@@ -55,13 +55,34 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: { code: 'NOT_FOUND', message: 'リポジトリが見つかりません' } }, { status: 404 })
   }
 
-  const { error } = await supabaseAdmin
-    .from('slack_integrations')
-    .update({ channel_id, channel_name, is_active: true })
-    .eq('repository_id', id)
-
-  if (error) {
-    return NextResponse.json({ error: { code: 'DB_ERROR', message: '更新に失敗しました' } }, { status: 500 })
+  if (method === 'bottoken') {
+    // Bot Tokenモード: 連携レコードがなければ新規作成、あれば更新
+    const { error } = await supabaseAdmin
+      .from('slack_integrations')
+      .upsert(
+        {
+          repository_id: id,
+          workspace_id: 'bottoken',
+          workspace_name: 'Bot Token',
+          channel_id,
+          channel_name,
+          access_token_encrypted: '',
+          is_active: true,
+        },
+        { onConflict: 'repository_id' }
+      )
+    if (error) {
+      return NextResponse.json({ error: { code: 'DB_ERROR', message: '更新に失敗しました' } }, { status: 500 })
+    }
+  } else {
+    // OAuthモード: 既存レコードのチャンネルのみ更新
+    const { error } = await supabaseAdmin
+      .from('slack_integrations')
+      .update({ channel_id, channel_name, is_active: true })
+      .eq('repository_id', id)
+    if (error) {
+      return NextResponse.json({ error: { code: 'DB_ERROR', message: '更新に失敗しました' } }, { status: 500 })
+    }
   }
 
   return NextResponse.json({ ok: true })

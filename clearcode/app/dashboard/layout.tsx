@@ -33,6 +33,11 @@ export default function DashboardLayout({
                 設定
               </Button>
             </Link>
+            <Link href="/dashboard/profile">
+              <Button variant="ghost" className="text-sm text-neutral-500 hover:text-black">
+                プロフィール
+              </Button>
+            </Link>
             <LogoutButton />
           </nav>
         </div>
