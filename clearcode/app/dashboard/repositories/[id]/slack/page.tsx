@@ -60,7 +60,7 @@ function SlackPageContent() {
     await fetch(`/api/repositories/${id}/slack`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channel_id: selected.id, channel_name: `#${selected.name}` }),
+      body: JSON.stringify({ channel_id: selected.id, channel_name: `#${selected.name}`, method: slackMethod }),
     })
     router.push(`/dashboard/repositories/${id}`)
   }

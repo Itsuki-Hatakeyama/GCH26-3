@@ -11,10 +11,21 @@ export async function GET(req: NextRequest) {
   }
 
   const repositoryId = req.nextUrl.searchParams.get('repository_id')
+
+  // Bot Tokenモード: repository_idなしで環境変数のSLACK_BOT_TOKENを使用
   if (!repositoryId) {
-    return NextResponse.json({ error: { code: 'INVALID_REQUEST', message: 'repository_idが必要です' } }, { status: 400 })
+    const botToken = process.env.SLACK_BOT_TOKEN
+    if (!botToken) {
+      return NextResponse.json({ error: { code: 'TOKEN_MISSING', message: 'SLACK_BOT_TOKENが設定されていません' } }, { status: 400 })
+    }
+    const allChannels = await getChannels(botToken)
+    const channels = allChannels
+      .filter((c: Record<string, unknown>) => !c.is_private && !c.is_archived)
+      .map((c: Record<string, unknown>) => ({ id: c.id, name: c.name, num_members: c.num_members ?? 0 }))
+    return NextResponse.json({ channels })
   }
 
+  // OAuthモード: DBから暗号化トークンを取得して使用
   const { data: integration } = await supabaseAdmin
     .from('slack_integrations')
     .select('access_token_encrypted')
