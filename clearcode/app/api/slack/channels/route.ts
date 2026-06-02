@@ -25,6 +25,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: { code: 'NOT_CONNECTED', message: 'Slack未連携です' } }, { status: 400 })
   }
 
+  if (!integration.access_token_encrypted) {
+    return NextResponse.json({ error: { code: 'TOKEN_MISSING' } }, { status: 400 })
+  }
+
   const accessToken = await decrypt(integration.access_token_encrypted)
   const allChannels = await getChannels(accessToken)
   const channels = allChannels

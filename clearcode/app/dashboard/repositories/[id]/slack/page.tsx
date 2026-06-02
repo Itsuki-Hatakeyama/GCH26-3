@@ -35,8 +35,12 @@ function SlackPageContent() {
       .then(async (d) => {
         if (d.integration) {
           setIntegration(d.integration)
-          const cd = await fetch(`/api/slack/channels?repository_id=${id}`).then((r) => r.json())
-          setChannels(cd.channels ?? [])
+          try {
+            const cd = await fetch(`/api/slack/channels?repository_id=${id}`).then((r) => r.json())
+            setChannels(cd.channels ?? [])
+          } catch {
+            // トークンが無効な場合はチャンネル取得をスキップ
+          }
         }
       })
       .finally(() => setLoading(false))
