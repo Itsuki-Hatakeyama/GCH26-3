@@ -28,15 +28,23 @@ function SlackPageContent() {
   const [selected, setSelected] = useState<Channel | null>(null)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [slackMethod, setSlackMethod] = useState<'oauth' | 'bottoken'>('oauth')
 
   useEffect(() => {
+    const saved = localStorage.getItem('slack_method') as 'oauth' | 'bottoken' | null
+    if (saved) setSlackMethod(saved)
+
     fetch(`/api/repositories/${id}/slack`)
       .then((r) => r.json())
       .then(async (d) => {
         if (d.integration) {
           setIntegration(d.integration)
           try {
-            const cd = await fetch(`/api/slack/channels?repository_id=${id}`).then((r) => r.json())
+            const method = localStorage.getItem('slack_method') ?? 'oauth'
+            const url = method === 'bottoken'
+              ? `/api/slack/channels`
+              : `/api/slack/channels?repository_id=${id}`
+            const cd = await fetch(url).then((r) => r.json())
             setChannels(cd.channels ?? [])
           } catch {
             // トークンが無効な場合はチャンネル取得をスキップ
@@ -81,18 +89,45 @@ function SlackPageContent() {
       <p className="text-sm text-neutral-500 mb-8">通知を送るワークスペースとチャンネルを設定してください。</p>
 
       {!integration ? (
-        /* Phase A: 未連携 → ワークスペース選択 */
+        /* Phase A: 未連携 */
         <div className="bg-white rounded-xl border border-neutral-100 p-8 text-center">
-          <p className="text-sm text-neutral-600 mb-2">Slackワークスペースを連携する</p>
-          <p className="text-xs text-neutral-400 mb-8 leading-relaxed">
-            ボタンを押すとSlackの認可画面が開きます。<br />
-            連携したいワークスペースを選択してください。
+          {slackMethod === 'oauth' ? (
+            <>
+              <p className="text-sm text-neutral-600 mb-2">Slackワークスペースを連携する</p>
+              <p className="text-xs text-neutral-400 mb-8 leading-relaxed">
+                ボタンを押すとSlackの認可画面が開きます。<br />
+                連携したいワークスペースを選択してください。
+              </p>
+              <a href={`/api/auth/slack/start?repository_id=${id}`}>
+                <button className="bg-gray-900 text-white text-sm font-medium px-8 py-2.5 rounded-lg hover:bg-gray-700 transition-colors">
+                  Slackと連携する（OAuth）
+                </button>
+              </a>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-neutral-600 mb-2">Bot Token方式で連携する</p>
+              <p className="text-xs text-neutral-400 mb-8 leading-relaxed">
+                環境変数の SLACK_BOT_TOKEN を使って連携します。<br />
+                チャンネルを選択するだけで設定完了です。
+              </p>
+              <button
+                onClick={async () => {
+                  const cd = await fetch(`/api/slack/channels`).then((r) => r.json())
+                  setChannels(cd.channels ?? [])
+                  setIntegration({ workspace_name: 'Bot Token', channel_id: '', channel_name: '', is_active: false })
+                }}
+                className="bg-gray-900 text-white text-sm font-medium px-8 py-2.5 rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                チャンネルを選択する
+              </button>
+            </>
+          )}
+          <p className="mt-6 text-xs text-gray-400">
+            連携方式は
+            <a href="/dashboard/profile" className="text-blue-600 hover:underline mx-1">プロフィール</a>
+            から変更できます
           </p>
-          <a href={`/api/auth/slack/start?repository_id=${id}`}>
-            <button className="bg-gray-900 text-white text-sm font-medium px-8 py-2.5 rounded-lg hover:bg-gray-700 transition-colors">
-              Slackと連携する
-            </button>
-          </a>
         </div>
       ) : (
         /* Phase B / C: 連携済み */
