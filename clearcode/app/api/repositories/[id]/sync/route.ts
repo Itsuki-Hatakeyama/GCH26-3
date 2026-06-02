@@ -83,6 +83,18 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     for (const commitId of toSummarize) {
       const commitRow = rows[commitIds.indexOf(commitId)]
       if (!commitRow) continue
+
+      // 変更ファイル一覧をGitHubから取得してDBに保存
+      try {
+        const commitDetail = await github.getCommit(accessToken, repo.owner, repo.name, commitRow.sha)
+        const changedFiles: string[] = (commitDetail.files ?? []).map((f: { filename: string }) => f.filename)
+        if (changedFiles.length > 0) {
+          await supabaseAdmin.from('commits').update({ changed_files: changedFiles }).eq('id', commitId)
+        }
+      } catch {
+        // ファイル取得失敗時はスキップ
+      }
+
       const summary = await generateSummary(commitRow.message, '')
       if (summary) {
         await supabaseAdmin.from('commit_summaries').upsert(

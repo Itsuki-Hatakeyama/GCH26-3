@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import TechBadge from "@/components/TechBadge";
 import QualityScore from "@/components/QualityScore";
+import ChangedFileList from "@/components/ChangedFileList";
 
 interface Technology {
   name: string;
@@ -43,6 +44,7 @@ export interface CommitWithSummary {
   committed_at: string;
   html_url: string;
   repository_id: string;
+  changed_files: string[] | null;
   // Supabase は一対多で返すので配列（UNIQUE制約があっても）
   commit_summaries: CommitSummaryData[];
 }
@@ -149,6 +151,11 @@ export default function CommitCard({ commit, isUnread = false }: CommitCardProps
             <TechBadge key={`rm-${i}`} name={t.name} type="removed" />
           ))}
         </div>
+      )}
+
+      {/* 変更ファイル */}
+      {(commit.changed_files?.length ?? 0) > 0 && (
+        <ChangedFileList files={commit.changed_files!} />
       )}
 
       {/* フッター */}
