@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ExternalLink, Copy, Check, RefreshCw, Send, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import TechBadge from "@/components/TechBadge";
+import ChangedFileList from "@/components/ChangedFileList";
 
 type Tab = "summary" | "visual" | "code" | "diff";
 
@@ -278,6 +279,9 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
           <span>·</span>
           <span>{date}</span>
         </div>
+        {diffFiles.length > 0 && (
+          <ChangedFileList files={diffFiles.map((f) => f.filename)} />
+        )}
       </div>
 
       {/* カテゴリバッジ */}
