@@ -57,8 +57,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { error } = await supabaseAdmin
     .from('slack_integrations')
-    .update({ channel_id, channel_name, is_active: true })
-    .eq('repository_id', id)
+    .upsert({
+      repository_id: id,
+      channel_id,
+      channel_name,
+      is_active: true,
+      workspace_id: 'bot',
+      workspace_name: 'Slack',
+      access_token_encrypted: '',
+    }, { onConflict: 'repository_id' })
 
   if (error) {
     return NextResponse.json({ error: { code: 'DB_ERROR', message: '更新に失敗しました' } }, { status: 500 })
