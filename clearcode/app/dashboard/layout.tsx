@@ -18,6 +18,11 @@ export default function DashboardLayout({
             Clearcode
           </Link>
           <nav className="flex items-center gap-1">
+            <Link href="/dashboard">
+              <Button variant="ghost" className="text-sm text-neutral-500 hover:text-black">
+                ホーム
+              </Button>
+            </Link>
             <Link href="/dashboard/connect-github">
               <Button variant="ghost" className="text-sm text-neutral-500 hover:text-black">
                 リポジトリ追加
