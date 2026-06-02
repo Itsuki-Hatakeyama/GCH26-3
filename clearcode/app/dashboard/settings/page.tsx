@@ -100,50 +100,81 @@ export default function SettingsPage() {
               コードレビュー結果をSlackに通知するには、<strong className="text-gray-700">Slack App</strong> を作成し、Clearcodeと連携させる必要があります。
             </p>
 
-            <ol className="space-y-4">
+            <ol className="space-y-6">
               <li className="flex gap-4">
                 <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center">1</span>
-                <div>
+                <div className="space-y-1.5">
                   <p className="text-sm font-medium text-gray-800">Slack App を作成する</p>
-                  <p className="text-sm text-gray-500 mt-0.5">
-                    <a href="https://api.slack.com/apps" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                      api.slack.com/apps
-                    </a>
-                    {" "}→「Create New App」→「From scratch」を選択し、App名とワークスペースを設定してください。
-                  </p>
+                  <ol className="text-sm text-gray-500 space-y-1 list-none">
+                    <li>① <a href="https://api.slack.com/apps" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">api.slack.com/apps</a> を開く</li>
+                    <li>② 右上の「<strong className="text-gray-700">Create New App</strong>」をクリック</li>
+                    <li>③「<strong className="text-gray-700">From scratch</strong>」を選択</li>
+                    <li>④ App Name に「<strong className="text-gray-700">Clearcode</strong>」と入力</li>
+                    <li>⑤ ワークスペースを選択して「<strong className="text-gray-700">Create App</strong>」をクリック</li>
+                  </ol>
                 </div>
               </li>
 
               <li className="flex gap-4">
                 <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center">2</span>
-                <div>
-                  <p className="text-sm font-medium text-gray-800">OAuth & Permissions を設定する</p>
-                  <p className="text-sm text-gray-500 mt-0.5">サイドバーの「OAuth &amp; Permissions」を開き、以下を設定してください。</p>
-                  <div className="mt-2 rounded-lg border border-gray-100 overflow-hidden text-xs">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-gray-800">Redirect URL を登録する</p>
+                  <ol className="text-sm text-gray-500 space-y-1 list-none">
+                    <li>① 左サイドバーの「<strong className="text-gray-700">OAuth &amp; Permissions</strong>」をクリック</li>
+                    <li>②「<strong className="text-gray-700">Redirect URLs</strong>」セクションまでスクロール</li>
+                    <li>③「<strong className="text-gray-700">Add New Redirect URL</strong>」をクリックして以下を追加</li>
+                  </ol>
+                  <div className="rounded-lg border border-gray-100 overflow-hidden text-xs mt-1">
                     <table className="w-full">
                       <tbody>
                         <tr className="border-b border-gray-100">
-                          <td className="px-3 py-2 text-gray-500 bg-neutral-50 w-48">Redirect URL</td>
-                          <td className="px-3 py-2 text-gray-800 font-mono">https://あなたのドメイン.vercel.app/api/auth/slack/callback</td>
+                          <td className="px-3 py-2 text-gray-500 bg-neutral-50 w-24">ローカル用</td>
+                          <td className="px-3 py-2 text-gray-800 font-mono">http://localhost:3001/api/auth/slack/callback</td>
                         </tr>
-                        <tr className="border-b border-gray-100">
-                          <td className="px-3 py-2 text-gray-500 bg-neutral-50">Bot Token Scopes</td>
-                          <td className="px-3 py-2 text-gray-800 font-mono">channels:read, chat:write, chat:write.public</td>
+                        <tr>
+                          <td className="px-3 py-2 text-gray-500 bg-neutral-50">本番用</td>
+                          <td className="px-3 py-2 text-gray-800 font-mono">https://あなたのドメイン.vercel.app/api/auth/slack/callback</td>
                         </tr>
                       </tbody>
                     </table>
                   </div>
-                  <p className="text-xs text-gray-400 mt-1.5">Redirect URLは「Add」ボタンで追加後「Save URLs」をクリックしてください。</p>
+                  <p className="text-xs text-gray-400">④ 両方追加したら「<strong className="text-gray-700">Save URLs</strong>」をクリック</p>
                 </div>
               </li>
 
               <li className="flex gap-4">
                 <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center">3</span>
-                <div>
-                  <p className="text-sm font-medium text-gray-800">デプロイ先に環境変数を登録する</p>
-                  <p className="text-sm text-gray-500 mt-0.5">「Basic Information」→「App Credentials」から取得し、Vercelの Environment Variables に追加してください。</p>
-                  <div className="mt-2 bg-gray-900 rounded-lg px-4 py-3 text-xs font-mono text-gray-300 leading-relaxed">
-                    <span className="text-gray-500"># Vercel の Environment Variables に追加</span><br />
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-gray-800">Bot Token Scopes を設定する</p>
+                  <ol className="text-sm text-gray-500 space-y-1 list-none">
+                    <li>① 同じ「<strong className="text-gray-700">OAuth &amp; Permissions</strong>」ページの「<strong className="text-gray-700">Scopes</strong>」セクションまでスクロール</li>
+                    <li>②「<strong className="text-gray-700">Bot Token Scopes</strong>」の「<strong className="text-gray-700">Add an OAuth Scope</strong>」をクリック</li>
+                    <li>③ 以下の3つを追加</li>
+                  </ol>
+                  <div className="rounded-lg border border-gray-100 overflow-hidden text-xs mt-1">
+                    <table className="w-full">
+                      <tbody>
+                        {['channels:read', 'chat:write', 'chat:write.public'].map((scope) => (
+                          <tr key={scope} className="border-b border-gray-100 last:border-0">
+                            <td className="px-3 py-2 text-gray-800 font-mono">{scope}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </li>
+
+              <li className="flex gap-4">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center">4</span>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-gray-800">Client ID / Client Secret を取得して環境変数に登録する</p>
+                  <ol className="text-sm text-gray-500 space-y-1 list-none">
+                    <li>① 左サイドバーの「<strong className="text-gray-700">Basic Information</strong>」をクリック</li>
+                    <li>②「<strong className="text-gray-700">App Credentials</strong>」セクションで Client ID と Client Secret を確認</li>
+                    <li>③ Vercel の <strong className="text-gray-700">Project → Settings → Environment Variables</strong> に以下を追加</li>
+                  </ol>
+                  <div className="mt-1 bg-gray-900 rounded-lg px-4 py-3 text-xs font-mono text-gray-300 leading-relaxed">
                     SLACK_CLIENT_ID=<span className="text-yellow-300">取得したClient ID</span><br />
                     SLACK_CLIENT_SECRET=<span className="text-yellow-300">取得したClient Secret</span><br />
                     SLACK_REDIRECT_URI=<span className="text-yellow-300">https://あなたのドメイン.vercel.app/api/auth/slack/callback</span>
@@ -152,12 +183,15 @@ export default function SettingsPage() {
               </li>
 
               <li className="flex gap-4">
-                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center">4</span>
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center">5</span>
                 <div>
                   <p className="text-sm font-medium text-gray-800">リポジトリのSlack設定ページで連携する</p>
-                  <p className="text-sm text-gray-500 mt-0.5">
-                    各リポジトリの設定ページに移動し、「Slackと連携する」ボタンを押してワークスペースへの認証を完了してください。認証後、通知先チャンネルを選択できます。
-                  </p>
+                  <ol className="text-sm text-gray-500 space-y-1 mt-1 list-none">
+                    <li>① ダッシュボードからリポジトリを選択</li>
+                    <li>② Slack連携ページで「<strong className="text-gray-700">Slackと連携する</strong>」をクリック</li>
+                    <li>③ Slackの認可画面でワークスペースを選択して「<strong className="text-gray-700">許可する</strong>」をクリック</li>
+                    <li>④ 通知先チャンネルを選択して「<strong className="text-gray-700">選択する</strong>」をクリック</li>
+                  </ol>
                 </div>
               </li>
             </ol>
