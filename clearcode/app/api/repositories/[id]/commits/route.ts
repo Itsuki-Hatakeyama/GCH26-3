@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSession } from "@/lib/auth";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 15;
 
 function supabase() {
   return createClient(
@@ -63,6 +63,7 @@ export async function GET(
 
   const page = Math.max(1, parseInt(sp.get("page") ?? "1", 10));
   const unreadOnly = sp.get("unread_only") === "true";
+  const branch = sp.get("branch"); // null = 全ブランチ
   const offset = (page - 1) * PAGE_SIZE;
 
   let query = supabase()
@@ -70,6 +71,11 @@ export async function GET(
     .select("*, commit_summaries(*)", { count: "exact" })
     .eq("repository_id", id)
     .order("committed_at", { ascending: false });
+
+  // ブランチフィルター（branch_names 配列にそのブランチが含まれるもの）
+  if (branch) {
+    query = query.contains("branch_names", [branch]);
+  }
 
   if (unreadOnly && repo.last_viewed_at) {
     query = query.gt("committed_at", repo.last_viewed_at);
