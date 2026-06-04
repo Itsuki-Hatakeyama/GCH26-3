@@ -3,7 +3,6 @@ import { getSession } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { github } from '@/lib/github'
 import { decrypt } from '@/lib/crypto'
-import { generateSummary } from '@/lib/services/summary-service'
 
 const PER_PAGE = 15
 
@@ -73,39 +72,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: { code: 'DB_ERROR', message: 'コミット保存に失敗しました', detail: error.message } }, { status: 500 })
   }
 
-  // 要約がまだないコミットに対して Gemini で生成（最新5件のみ、レート制限対策）
+  // 変更ファイル一覧をGitHubから取得してDBに保存（要約は手動ボタンで生成）
   const commitIds = (upserted ?? []).map((r) => r.id)
-  if (commitIds.length > 0) {
-    const { data: existingSummaries } = await supabaseAdmin
-      .from('commit_summaries')
-      .select('commit_id')
-      .in('commit_id', commitIds)
-
-    const alreadySummarized = new Set((existingSummaries ?? []).map((s) => s.commit_id))
-    const toSummarize = commitIds.filter((cid) => !alreadySummarized.has(cid)).slice(0, 5)
-
-    for (const commitId of toSummarize) {
-      const commitRow = rows[commitIds.indexOf(commitId)]
-      if (!commitRow) continue
-
-      // 変更ファイル一覧をGitHubから取得してDBに保存
-      try {
-        const commitDetail = await github.getCommit(accessToken, repo.owner, repo.name, commitRow.sha)
-        const changedFiles: string[] = (commitDetail.files ?? []).map((f: { filename: string }) => f.filename)
-        if (changedFiles.length > 0) {
-          await supabaseAdmin.from('commits').update({ changed_files: changedFiles }).eq('id', commitId)
-        }
-      } catch {
-        // ファイル取得失敗時はスキップ
+  for (const commitId of commitIds) {
+    const commitRow = rows[commitIds.indexOf(commitId)]
+    if (!commitRow) continue
+    try {
+      const commitDetail = await github.getCommit(accessToken, repo.owner, repo.name, commitRow.sha)
+      const changedFiles: string[] = (commitDetail.files ?? []).map((f: { filename: string }) => f.filename)
+      if (changedFiles.length > 0) {
+        await supabaseAdmin.from('commits').update({ changed_files: changedFiles }).eq('id', commitId)
       }
-
-      const summary = await generateSummary(commitRow.message, '')
-      if (summary) {
-        await supabaseAdmin.from('commit_summaries').upsert(
-          { commit_id: commitId, ...summary },
-          { onConflict: 'commit_id' }
-        )
-      }
+    } catch {
+      // ファイル取得失敗時はスキップ
     }
   }
 

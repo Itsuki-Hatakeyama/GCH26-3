@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronUp, ExternalLink, GitBranch, User } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, GitBranch, Loader2, Sparkles, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import TechBadge from "@/components/TechBadge";
 import QualityScore from "@/components/QualityScore";
@@ -57,7 +57,35 @@ interface CommitCardProps {
 
 export default function CommitCard({ commit, isUnread = false, branch }: CommitCardProps) {
   const [showOriginal, setShowOriginal] = useState(false);
-  const s = commit.commit_summaries?.[0] ?? null;
+  const [summaryData, setSummaryData] = useState<CommitSummaryData | null>(commit.commit_summaries?.[0] ?? null);
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
+  const s = summaryData;
+
+  const handleGenerateSummary = async () => {
+    setGenerating(true);
+    setGenError(null);
+    try {
+      const res = await fetch(`/api/commits/${commit.id}/regenerate-summary`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setGenError(data.error?.message ?? "生成に失敗しました");
+        return;
+      }
+      setSummaryData({
+        simplified_message: data.simplified_message,
+        code_explanation: data.code_explanation,
+        frontend_changes: data.frontend_changes ?? null,
+        added_technologies: data.added_technologies ?? null,
+        removed_technologies: data.removed_technologies ?? null,
+        message_quality_score: data.message_quality_score ?? null,
+        message_quality_feedback: data.message_quality_feedback ?? null,
+        change_categories: data.change_categories ?? null,
+      });
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const date = new Intl.DateTimeFormat("ja-JP", {
     month: "short",
@@ -97,11 +125,27 @@ export default function CommitCard({ commit, isUnread = false, branch }: CommitC
               </>
             )}
           </div>
-          {/* AI平易化 */}
-          {s && (
+          {/* AI平易化 or 生成ボタン */}
+          {s ? (
             <p className="text-sm text-gray-600 leading-snug pt-0.5">
               {s.simplified_message}
             </p>
+          ) : (
+            <div className="flex items-center gap-2 pt-0.5">
+              <button
+                onClick={handleGenerateSummary}
+                disabled={generating}
+                className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {generating ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Sparkles className="w-3 h-3" />
+                )}
+                {generating ? "生成中..." : "要約を生成する"}
+              </button>
+              {genError && <span className="text-xs text-red-500">{genError}</span>}
+            </div>
           )}
         </div>
         <a
