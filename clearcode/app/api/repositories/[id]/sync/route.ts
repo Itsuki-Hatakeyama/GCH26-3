@@ -37,69 +37,83 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const page = parseInt(req.nextUrl.searchParams.get('page') ?? '1', 10)
   const accessToken = await decrypt(integration.access_token_encrypted)
-  const commits = await github.getCommits(accessToken, repo.owner, repo.name, PER_PAGE, undefined, page)
-  const hasNextPage = commits.length === PER_PAGE
 
-  console.log(`[sync] repo=${repo.owner}/${repo.name} page=${page} commits_from_github=${commits.length}`)
+  // 全ブランチを取得
+  const allBranches = await github.getBranches(accessToken, repo.owner, repo.name) as { name: string }[]
+  const branchNames = allBranches.map((b) => b.name)
 
-  if (commits.length === 0) {
-    return NextResponse.json({ synced: 0, hasNextPage: false })
+  if (branchNames.length === 0) {
+    return NextResponse.json({ synced: 0, hasNextPage: false, branches: [] })
   }
 
-  const rows = commits.map((c: {
-    sha: string
-    commit: { message: string; author: { name: string; email: string; date: string } }
-    html_url: string
-  }) => ({
-    repository_id: id,
-    sha: c.sha,
-    message: c.commit.message,
-    author_name: c.commit.author.name,
-    author_email: c.commit.author.email,
-    committed_at: c.commit.author.date,
-    html_url: c.html_url,
-  }))
-
-  const { error, data: upserted } = await supabaseAdmin
-    .from('commits')
-    .upsert(rows, { onConflict: 'repository_id,sha' })
-    .select('id')
-
-  console.log(`[sync] upsert result: count=${upserted?.length ?? 0} error=${JSON.stringify(error)}`)
-
-  if (error) {
-    console.error('[sync] DB error:', error)
-    return NextResponse.json({ error: { code: 'DB_ERROR', message: 'コミット保存に失敗しました', detail: error.message } }, { status: 500 })
-  }
-
-  // changed_files が未取得のコミットだけ GitHub から取得してDBに保存
-  const commitIds = (upserted ?? []).map((r) => r.id)
-  const { data: existingFiles } = await supabaseAdmin
-    .from('commits')
-    .select('id, changed_files')
-    .in('id', commitIds)
-
-  const needFiles = new Set(
-    (existingFiles ?? [])
-      .filter((c) => !c.changed_files || (c.changed_files as string[]).length === 0)
-      .map((c) => c.id)
+  // 全ブランチのコミットを並列取得
+  const branchResults = await Promise.all(
+    branchNames.map(async (branchName) => {
+      const commits = await github.getCommits(accessToken, repo.owner, repo.name, PER_PAGE, branchName, page)
+      return { branchName, commits: commits as {
+        sha: string
+        commit: { message: string; author: { name: string; email: string; date: string } }
+        html_url: string
+      }[] }
+    })
   )
 
-  for (const commitId of commitIds) {
-    if (!needFiles.has(commitId)) continue
-    const idx = commitIds.indexOf(commitId)
-    const commitRow = rows[idx]
-    if (!commitRow) continue
-    try {
-      const commitDetail = await github.getCommit(accessToken, repo.owner, repo.name, commitRow.sha)
-      const changedFiles: string[] = (commitDetail.files ?? []).map((f: { filename: string }) => f.filename)
-      if (changedFiles.length > 0) {
-        await supabaseAdmin.from('commits').update({ changed_files: changedFiles }).eq('id', commitId)
+  const hasNextPage = branchResults.some((r) => r.commits.length === PER_PAGE)
+
+  // SHA をキーにコミットを集約（同じコミットが複数ブランチにある場合に重複排除）
+  const commitMap = new Map<string, { row: Record<string, unknown>; branches: string[] }>()
+  for (const { branchName, commits } of branchResults) {
+    for (const c of commits) {
+      if (commitMap.has(c.sha)) {
+        commitMap.get(c.sha)!.branches.push(branchName)
+      } else {
+        commitMap.set(c.sha, {
+          row: {
+            repository_id: id,
+            sha: c.sha,
+            message: c.commit.message,
+            author_name: c.commit.author.name,
+            author_email: c.commit.author.email,
+            committed_at: c.commit.author.date,
+            html_url: c.html_url,
+          },
+          branches: [branchName],
+        })
       }
-    } catch {
-      // ファイル取得失敗時はスキップ
     }
   }
 
-  return NextResponse.json({ synced: rows.length, saved: upserted?.length ?? 0, hasNextPage })
+  if (commitMap.size === 0) {
+    return NextResponse.json({ synced: 0, hasNextPage: false, branches: branchNames })
+  }
+
+  const rows = Array.from(commitMap.values()).map((v) => v.row)
+
+  // コミットをupsert
+  const { error, data: upserted } = await supabaseAdmin
+    .from('commits')
+    .upsert(rows, { onConflict: 'repository_id,sha' })
+    .select('id, sha, branch_names')
+
+  if (error) {
+    console.error('[sync] DB error:', error)
+    return NextResponse.json({ error: { code: 'DB_ERROR', message: 'コミット保存に失敗しました' } }, { status: 500 })
+  }
+
+  // branch_names を更新（既存の配列に新しいブランチ名をマージ）
+  for (const commit of upserted ?? []) {
+    const newBranches = commitMap.get(commit.sha)?.branches ?? []
+    const existing: string[] = commit.branch_names ?? []
+    const merged = [...new Set([...existing, ...newBranches])]
+    if (merged.length !== existing.length) {
+      await supabaseAdmin
+        .from('commits')
+        .update({ branch_names: merged })
+        .eq('id', commit.id)
+    }
+  }
+
+  console.log(`[sync] repo=${repo.owner}/${repo.name} page=${page} branches=${branchNames.length} commits=${commitMap.size}`)
+
+  return NextResponse.json({ synced: commitMap.size, hasNextPage, branches: branchNames })
 }

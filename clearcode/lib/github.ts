@@ -32,6 +32,15 @@ export const github = {
     return res.json()
   },
 
+  getBranches: async (accessToken: string, owner: string, repo: string) => {
+    const res = await fetch(
+      `${GITHUB_API}/repos/${owner}/${repo}/branches?per_page=100`,
+      { headers: headers(accessToken) }
+    )
+    if (!res.ok) return []
+    return res.json()
+  },
+
   getCommit: async (accessToken: string, owner: string, repo: string, sha: string) => {
     const res = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/commits/${sha}`, {
       headers: headers(accessToken),

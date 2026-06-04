@@ -1,12 +1,115 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ExternalLink, RefreshCw, Trash2 } from "lucide-react";
+import { ExternalLink, RefreshCw, Trash2, GitBranch, ChevronDown, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CommitCard, { type CommitWithSummary } from "@/components/CommitCard";
 import type { Repository } from "@/types/database";
+
+function BranchSelector({
+  branches,
+  selected,
+  onChange,
+}: {
+  branches: string[];
+  selected: string | null;
+  onChange: (branch: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase();
+    return q ? branches.filter((b) => b.toLowerCase().includes(q)) : branches;
+  }, [branches, query]);
+
+  // 外側クリックで閉じる
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setQuery("");
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleSelect = (branch: string | null) => {
+    onChange(branch);
+    setOpen(false);
+    setQuery("");
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 text-xs border border-neutral-200 rounded-lg px-2.5 py-1.5 bg-white text-neutral-700 hover:border-neutral-300 focus:outline-none focus:ring-1 focus:ring-neutral-300 transition-colors"
+      >
+        <GitBranch className="w-3 h-3 text-neutral-400" />
+        <span className="max-w-[160px] truncate">{selected ?? "すべてのブランチ"}</span>
+        <ChevronDown className={`w-3 h-3 text-neutral-400 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="absolute z-20 mt-1 w-56 bg-white border border-neutral-200 rounded-xl shadow-lg overflow-hidden">
+          {/* 検索 */}
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-neutral-100">
+            <Search className="w-3 h-3 text-neutral-400 shrink-0" />
+            <input
+              autoFocus
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="ブランチを検索..."
+              className="w-full text-xs text-neutral-700 placeholder-neutral-400 focus:outline-none bg-transparent"
+            />
+          </div>
+
+          {/* 選択肢 */}
+          <ul className="max-h-52 overflow-y-auto py-1">
+            {!query && (
+              <li>
+                <button
+                  onClick={() => handleSelect(null)}
+                  className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${
+                    selected === null
+                      ? "bg-neutral-100 text-neutral-900 font-medium"
+                      : "text-neutral-600 hover:bg-neutral-50"
+                  }`}
+                >
+                  すべてのブランチ
+                </button>
+              </li>
+            )}
+            {filtered.length === 0 ? (
+              <li className="px-3 py-3 text-xs text-neutral-400 text-center">見つかりません</li>
+            ) : (
+              filtered.map((branch) => (
+                <li key={branch}>
+                  <button
+                    onClick={() => handleSelect(branch)}
+                    className={`w-full text-left px-3 py-1.5 text-xs truncate transition-colors ${
+                      selected === branch
+                        ? "bg-neutral-100 text-neutral-900 font-medium"
+                        : "text-neutral-600 hover:bg-neutral-50"
+                    }`}
+                  >
+                    {branch}
+                  </button>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface Pagination {
   page: number;
@@ -16,6 +119,8 @@ interface Pagination {
 export default function RepositoryDetailClient({ id }: { id: string }) {
   const router = useRouter();
   const [repo, setRepo] = useState<Repository | null>(null);
+  const [branches, setBranches] = useState<string[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
   const [unreadCommits, setUnreadCommits] = useState<CommitWithSummary[]>([]);
   const [allCommits, setAllCommits] = useState<CommitWithSummary[]>([]);
   const [pagination, setPagination] = useState<Pagination>({ page: 1, hasNextPage: false });
@@ -25,16 +130,15 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchCommitsFromDB = useCallback(
-    async (page = 1) => {
+    async (page = 1, branch: string | null = null) => {
+      const branchParam = branch ? `&branch=${encodeURIComponent(branch)}` : "";
       const [unreadRes, allRes] = await Promise.all([
-        fetch(`/api/repositories/${id}/commits?unread_only=true`),
-        fetch(`/api/repositories/${id}/commits?page=${page}`),
+        fetch(`/api/repositories/${id}/commits?unread_only=true${branchParam}`),
+        fetch(`/api/repositories/${id}/commits?page=${page}${branchParam}`),
       ]);
       if (!unreadRes.ok || !allRes.ok) throw new Error("コミットの取得に失敗しました");
-
       const unread = await unreadRes.json();
       const all = await allRes.json();
-
       setUnreadCommits(unread.commits);
       setAllCommits(all.commits);
       return all;
@@ -42,14 +146,19 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
     [id]
   );
 
-  // ページ指定でGitHubからsyncしてからDBを表示する
+  // 全ブランチ分syncしてからDBを表示
   const syncAndFetchPage = useCallback(
-    async (page = 1) => {
+    async (page = 1, branch: string | null = null) => {
       const syncRes = await fetch(`/api/repositories/${id}/sync?page=${page}`, { method: "POST" });
-      const syncData = syncRes.ok ? await syncRes.json() : { hasNextPage: false };
-      const all = await fetchCommitsFromDB(page);
+      const syncData = syncRes.ok ? await syncRes.json() : { hasNextPage: false, branches: [] };
+
+      // syncから返ってきたブランチ一覧をセット（初回のみ）
+      if (syncData.branches?.length > 0) {
+        setBranches(syncData.branches);
+      }
+
+      await fetchCommitsFromDB(page, branch);
       setPagination({ page, hasNextPage: syncData.hasNextPage ?? false });
-      return all;
     },
     [id, fetchCommitsFromDB]
   );
@@ -60,12 +169,12 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
     setRepo(await repoRes.json());
   }, [id]);
 
-  // 初回マウント: page=1 をsync→表示
+  // 初回マウント
   useEffect(() => {
     (async () => {
       try {
         await fetchRepo();
-        await syncAndFetchPage(1);
+        await syncAndFetchPage(1, null);
         await fetch(`/api/repositories/${id}/viewed`, { method: "PATCH" });
       } catch (e) {
         setError(e instanceof Error ? e.message : "エラーが発生しました");
@@ -75,13 +184,34 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
     })();
   }, [id, fetchRepo, syncAndFetchPage]);
 
-  // 30秒ポーリング（DBからのみ再取得、GitHubは叩かない）
+  // 30秒ポーリング（DBのみ、GitHub不要）
   useEffect(() => {
     const timer = setInterval(() => {
-      fetchCommitsFromDB(pagination.page).catch(() => {});
+      fetchCommitsFromDB(pagination.page, selectedBranch).catch(() => {});
     }, 30_000);
     return () => clearInterval(timer);
-  }, [fetchCommitsFromDB, pagination.page]);
+  }, [fetchCommitsFromDB, pagination.page, selectedBranch]);
+
+  const handleBranchSelect = async (branch: string | null) => {
+    setSelectedBranch(branch);
+    setPageLoading(true);
+    try {
+      // ブランチ切り替えはDBのみから再取得（GitHubは叩かない）
+      const all = await fetchCommitsFromDB(1, branch);
+      setPagination({ page: 1, hasNextPage: (all.commits?.length ?? 0) === 15 });
+    } finally {
+      setPageLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await syncAndFetchPage(pagination.page, selectedBranch);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!repo) return;
@@ -90,26 +220,23 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
     if (res.ok) router.push("/dashboard");
   };
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    try {
-      await syncAndFetchPage(pagination.page);
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
   const handlePageChange = async (newPage: number) => {
     setPageLoading(true);
     try {
-      await syncAndFetchPage(newPage);
+      if (newPage > pagination.page) {
+        // 次へ: GitHubからそのページを取得してDB保存
+        await syncAndFetchPage(newPage, selectedBranch);
+      } else {
+        // 前へ: DBのみから取得
+        await fetchCommitsFromDB(newPage, selectedBranch);
+        setPagination((prev) => ({ ...prev, page: newPage, hasNextPage: true }));
+      }
       window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {
       setPageLoading(false);
     }
   };
 
-  // 日付ラベル
   const dateLabel = (iso: string) => {
     const d = new Date(iso);
     const today = new Date();
@@ -121,7 +248,6 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
     return new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "long", day: "numeric" }).format(d);
   };
 
-  // コミットを日付でグループ化
   const groupedCommits = useMemo(() => {
     const groups: { label: string; commits: CommitWithSummary[] }[] = [];
     const seen = new Map<string, number>();
@@ -163,18 +289,14 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-sm text-neutral-400 mb-2">
-            <Link href="/dashboard" className="hover:text-neutral-700 transition-colors">
-              ホーム
-            </Link>
+            <Link href="/dashboard" className="hover:text-neutral-700 transition-colors">ホーム</Link>
             <span>/</span>
             <span className="text-neutral-900">{repo.name}</span>
           </div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-semibold text-black">{repo.name}</h1>
             {repo.is_private && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-500">
-                プライベート
-              </span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-500">プライベート</span>
             )}
           </div>
           {repo.description && (
@@ -199,9 +321,7 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
             </Button>
           </a>
           <Link href={`/dashboard/repositories/${id}/slack`}>
-            <Button variant="outline" size="sm" className="rounded-full text-xs">
-              Slack連携
-            </Button>
+            <Button variant="outline" size="sm" className="rounded-full text-xs">Slack連携</Button>
           </Link>
           <Button
             variant="outline"
@@ -225,6 +345,17 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
         </div>
       </div>
 
+      {/* ブランチフィルター */}
+      {branches.length > 0 && (
+        <div>
+          <BranchSelector
+            branches={branches}
+            selected={selectedBranch}
+            onChange={handleBranchSelect}
+          />
+        </div>
+      )}
+
       {/* 未読セクション */}
       {unreadCommits.length > 0 && (
         <section>
@@ -246,7 +377,10 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
       <section>
         <h2 className="text-sm font-semibold text-neutral-900 mb-4">
           コミット履歴
-          <span className="ml-2 font-normal text-neutral-400">（{pagination.page}ページ目）</span>
+          <span className="ml-2 font-normal text-neutral-400">
+            {selectedBranch ? `（${selectedBranch}）` : "（全ブランチ）"}
+            {pagination.page > 1 && ` · ${pagination.page}ページ目`}
+          </span>
         </h2>
 
         {pageLoading ? (
@@ -289,9 +423,7 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
             >
               前へ
             </Button>
-            <span className="text-xs text-neutral-400">
-              {pagination.page} ページ目
-            </span>
+            <span className="text-xs text-neutral-400">{pagination.page} ページ目</span>
             <Button
               variant="outline"
               size="sm"
