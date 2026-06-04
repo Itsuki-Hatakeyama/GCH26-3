@@ -1,13 +1,51 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import { buildSimplifyPrompt } from '@/lib/prompts/simplify-message'
-import { buildExplainCodePrompt } from '@/lib/prompts/explain-code'
-import { buildQualityScorePrompt } from '@/lib/prompts/quality-score'
-import { buildCategorizePrompt, type ChangeCategory } from '@/lib/prompts/categorize-change'
+import type { ChangeCategory } from '@/lib/prompts/categorize-change'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
-const MODEL = 'gemini-2.0-flash'
+const MODEL = 'gemini-1.5-flash'
 
-// 429時にretryDelay分待ってリトライ（最大3回）
+function compressDiff(diff: string): string {
+  if (!diff || diff.length <= 1000) return diff
+
+  // +/- 行とファイル・位置情報だけ抽出（コンテキスト行を除外）
+  const extracted = diff
+    .split('\n')
+    .filter((line) =>
+      line.startsWith('+') ||
+      line.startsWith('-') ||
+      line.startsWith('@@') ||
+      line.startsWith('diff --git')
+    )
+    .join('\n')
+
+  if (extracted.length <= 2000) return extracted
+
+  // それでも長い場合は2000文字で切る
+  return extracted.slice(0, 2000)
+}
+
+function buildCombinedPrompt(commitMessage: string, diff: string): string {
+  const diffSnippet = compressDiff(diff)
+  return `あなたはGitコミットを分析する専門家です。以下のコミット情報を分析し、JSON形式のみで回答してください。
+
+## コミットメッセージ
+${commitMessage}
+
+## コード差分
+${diffSnippet || '(差分なし)'}
+
+## 出力形式
+以下のJSONのみを出力してください。余分なテキストや\`\`\`は不要です。
+
+{
+  "simplified_message": "プログラミング知識がない人向けに1〜2文で何をしたか説明",
+  "code_explanation": "どのファイルで何が変わり、ユーザーや機能にどう影響するか2〜4文で説明",
+  "quality_score": 0〜100の整数（何をしたか40点・なぜしたか30点・影響範囲30点で評価）,
+  "quality_feedback": "50文字以内のフィードバック",
+  "categories": ["カテゴリ1"] // フロントエンド/バックエンド/インフラ/テスト/ドキュメント/設定/リファクタリング/バグ修正 から最大3つ
+}`
+}
+
 async function generate(prompt: string, retries = 3): Promise<string> {
   const model = genAI.getGenerativeModel({ model: MODEL })
   for (let i = 0; i < retries; i++) {
@@ -16,15 +54,14 @@ async function generate(prompt: string, retries = 3): Promise<string> {
       return result.response.text().trim()
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
+      console.error('[Gemini raw error]', msg)
       const is429 = msg.includes('429')
 
-      // 日次クォータ超過は即座に諦める（リトライしても無意味）
-      if (is429 && msg.includes('FreeTier') && msg.includes('PerDay')) {
+      if (is429 && (msg.includes('PerDay') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED'))) {
         throw new Error('QUOTA_EXCEEDED_DAILY')
       }
 
       if (is429 && i < retries - 1) {
-        // エラーメッセージからretryDelay秒を取得（なければ10秒）
         const match = msg.match(/retry in (\d+)/)
         const waitSec = match ? parseInt(match[1]) + 1 : 10
         await new Promise((r) => setTimeout(r, waitSec * 1000))
@@ -44,51 +81,34 @@ export interface CommitSummary {
   change_categories: ChangeCategory[]
 }
 
+export type SummaryError = 'QUOTA_EXCEEDED' | 'AUTH_ERROR' | 'UNKNOWN'
+
 export async function generateSummary(
   commitMessage: string,
   diff: string
-): Promise<CommitSummary | null> {
+): Promise<CommitSummary | { error: SummaryError } | null> {
   try {
-    // 順番に呼ぶ（並列だとレート制限に当たりやすい）
-    const simplified = await generate(buildSimplifyPrompt(commitMessage))
-    const explanation = await generate(buildExplainCodePrompt(diff, commitMessage))
-    const qualityRaw = await generate(buildQualityScorePrompt(commitMessage))
-    const categoriesRaw = await generate(buildCategorizePrompt(commitMessage, diff))
-
-    let score = 50
-    let feedback = 'コミットメッセージの品質を評価できませんでした'
-    try {
-      const json = JSON.parse(qualityRaw.replace(/```json|```/g, '').trim())
-      score = Math.min(100, Math.max(0, Number(json.score) || 50))
-      feedback = json.feedback || feedback
-    } catch {
-      // JSON parse失敗時はデフォルト値
-    }
-
-    let change_categories: ChangeCategory[] = []
-    try {
-      const json = JSON.parse(categoriesRaw.replace(/```json|```/g, '').trim())
-      if (Array.isArray(json.categories)) {
-        change_categories = json.categories.slice(0, 3) as ChangeCategory[]
-      }
-    } catch {
-      // JSON parse失敗時は空配列
-    }
+    const raw = await generate(buildCombinedPrompt(commitMessage, diff))
+    const json = JSON.parse(raw.replace(/```json|```/g, '').trim())
 
     return {
-      simplified_message: simplified,
-      code_explanation: explanation,
-      message_quality_score: score,
-      message_quality_feedback: feedback,
-      change_categories,
+      simplified_message: json.simplified_message ?? commitMessage,
+      code_explanation: json.code_explanation ?? '',
+      message_quality_score: Math.min(100, Math.max(0, Number(json.quality_score) || 50)),
+      message_quality_feedback: json.quality_feedback ?? '',
+      change_categories: Array.isArray(json.categories) ? json.categories.slice(0, 3) as ChangeCategory[] : [],
     }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
     if (msg === 'QUOTA_EXCEEDED_DAILY') {
       console.warn('Gemini日次クォータ超過。要約をスキップします。')
-      return null
+      return { error: 'QUOTA_EXCEEDED' }
+    }
+    if (msg.includes('API_KEY_INVALID') || msg.includes('401') || msg.includes('403')) {
+      console.error('Gemini APIキーが無効です:', msg)
+      return { error: 'AUTH_ERROR' }
     }
     console.error('Gemini要約生成エラー:', msg)
-    return null
+    return { error: 'UNKNOWN' }
   }
 }

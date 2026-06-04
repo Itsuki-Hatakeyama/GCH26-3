@@ -45,8 +45,20 @@ export async function POST(
 
   if (!result) {
     return NextResponse.json(
-      { error: { code: "QUOTA_EXCEEDED", message: "Geminiクォータ超過のため生成できませんでした" } },
-      { status: 503 }
+      { error: { code: "UNKNOWN", message: "要約の生成に失敗しました" } },
+      { status: 500 }
+    );
+  }
+
+  if ("error" in result) {
+    const messages: Record<string, string> = {
+      QUOTA_EXCEEDED: "Geminiの1日の利用上限に達しました。明日再度お試しください",
+      AUTH_ERROR: "Gemini APIキーが無効です。.env.local の GEMINI_API_KEY を確認してください",
+      UNKNOWN: "要約の生成に失敗しました",
+    };
+    return NextResponse.json(
+      { error: { code: result.error, message: messages[result.error] } },
+      { status: result.error === "QUOTA_EXCEEDED" ? 503 : 500 }
     );
   }
 
