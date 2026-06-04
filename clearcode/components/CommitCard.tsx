@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import TechBadge from "@/components/TechBadge";
 import QualityScore from "@/components/QualityScore";
@@ -71,15 +71,29 @@ export default function CommitCard({ commit, isUnread = false }: CommitCardProps
         isUnread ? "bg-blue-50/40 border-blue-200" : "bg-white border-neutral-100"
       }`}
     >
-      {/* 平易化メッセージ */}
+      {/* ヘッダー */}
       <div className="flex items-start justify-between gap-3">
-        <p
-          className={`text-base font-semibold leading-snug ${
-            s ? "text-gray-900" : "text-gray-400 italic"
-          }`}
-        >
-          {s ? s.simplified_message : "要約を生成中..."}
-        </p>
+        <div className="min-w-0 space-y-1.5">
+          {/* 原文タイトル */}
+          <p className="text-sm font-semibold text-gray-900 leading-snug">
+            {commit.message.split('\n')[0]}
+          </p>
+          {/* 著者 */}
+          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+            <User className="w-3 h-3 shrink-0" />
+            <span className="font-medium">{commit.author_name}</span>
+            <span className="text-gray-300">·</span>
+            <span>{date}</span>
+            <span className="text-gray-300">·</span>
+            <span className="font-mono text-gray-400">{commit.sha.slice(0, 7)}</span>
+          </div>
+          {/* AI平易化 */}
+          {s && (
+            <p className="text-sm text-gray-600 leading-snug pt-0.5">
+              {s.simplified_message}
+            </p>
+          )}
+        </div>
         <a
           href={commit.html_url}
           target="_blank"
@@ -159,26 +173,17 @@ export default function CommitCard({ commit, isUnread = false }: CommitCardProps
       )}
 
       {/* フッター */}
-      <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-        <div className="flex items-center gap-2 text-xs text-gray-400">
-          <span>{commit.author_name}</span>
-          <span>·</span>
-          <span>{date}</span>
-          <span>·</span>
-          <span className="font-mono">{commit.sha.slice(0, 7)}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          {s?.message_quality_score != null && (
-            <QualityScore score={s.message_quality_score} />
-          )}
-          <Link
-            href={`/dashboard/repositories/${commit.repository_id}/commits/${commit.sha}`}
-          >
-            <Button variant="outline" size="sm" className="rounded-full text-xs h-7 px-3">
-              詳細を見る
-            </Button>
-          </Link>
-        </div>
+      <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+        {s?.message_quality_score != null && (
+          <QualityScore score={s.message_quality_score} />
+        )}
+        <Link
+          href={`/dashboard/repositories/${commit.repository_id}/commits/${commit.sha}`}
+        >
+          <Button variant="outline" size="sm" className="rounded-full text-xs h-7 px-3">
+            詳細を見る
+          </Button>
+        </Link>
       </div>
     </div>
   );
