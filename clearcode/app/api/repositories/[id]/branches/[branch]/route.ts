@@ -38,12 +38,15 @@ export async function GET(
     sha: string
     commit: { message: string; author: { name: string; date: string } }
     html_url: string
+    parents: { sha: string }[]
   }[]).map((c) => ({
     sha: c.sha,
     title: c.commit.message.split('\n')[0],
+    message: c.commit.message,
     author_name: c.commit.author.name,
     committed_at: c.commit.author.date,
     html_url: c.html_url,
+    parents: (c.parents ?? []).map((p) => p.sha),
   }))
 
   return NextResponse.json({ commits })
