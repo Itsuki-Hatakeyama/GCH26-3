@@ -21,9 +21,20 @@ export const github = {
     return res.json()
   },
 
-  getCommits: async (accessToken: string, owner: string, repo: string, perPage = 30) => {
+  getCommits: async (accessToken: string, owner: string, repo: string, perPage = 30, branch?: string) => {
+    const params = new URLSearchParams({ per_page: String(perPage) })
+    if (branch) params.set('sha', branch)
     const res = await fetch(
-      `${GITHUB_API}/repos/${owner}/${repo}/commits?per_page=${perPage}`,
+      `${GITHUB_API}/repos/${owner}/${repo}/commits?${params}`,
+      { headers: headers(accessToken) }
+    )
+    if (!res.ok) return []
+    return res.json()
+  },
+
+  getBranches: async (accessToken: string, owner: string, repo: string) => {
+    const res = await fetch(
+      `${GITHUB_API}/repos/${owner}/${repo}/branches?per_page=100`,
       { headers: headers(accessToken) }
     )
     if (!res.ok) return []

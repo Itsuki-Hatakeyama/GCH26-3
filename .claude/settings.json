@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p /Users/yugo_suzuki/GCH26-3/GCH26-3/clearcode/app/api/repositories/\\\\[id\\\\]/branches)",
+      "Bash(mkdir -p \"/Users/yugo_suzuki/GCH26-3/GCH26-3/clearcode/app/api/repositories/[id]/branches/[branch]\")"
+    ],
+    "additionalDirectories": [
+      "/Users/yugo_suzuki/GCH26-3/GCH26-3/clearcode/app/api/repositories/[id]",
+      "/Users/yugo_suzuki/GCH26-3/GCH26-3/clearcode/app/api/repositories/[id]/branches",
+      "/Users/yugo_suzuki/GCH26-3/GCH26-3/clearcode/app/api/repositories/[id]/branches/[branch]"
+    ]
+  }
+}

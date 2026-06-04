@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ExternalLink, RefreshCw, GitBranch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CommitCard, { type CommitWithSummary } from "@/components/CommitCard";
+import BranchGraph, { type GraphBranchInfo } from "@/components/BranchGraph";
 import type { Repository } from "@/types/database";
 
 interface Pagination {
@@ -21,6 +22,8 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [branches, setBranches] = useState<GraphBranchInfo[]>([]);
+  const [activeTab, setActiveTab] = useState<"commits" | "branches">("commits");
 
   const fetchCommits = useCallback(
     async (page = 1) => {
@@ -68,6 +71,10 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
       try {
         await syncAndFetch();
         await fetch(`/api/repositories/${id}/viewed`, { method: "PATCH" });
+        fetch(`/api/repositories/${id}/branches`)
+          .then((r) => r.json())
+          .then((d) => { if (d.branches) setBranches(d.branches) })
+          .catch(() => {})
       } catch (e) {
         setError(e instanceof Error ? e.message : "エラーが発生しました");
       } finally {
@@ -169,75 +176,124 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
         </div>
       </div>
 
-      {/* 未読セクション */}
-      {unreadCommits.length > 0 && (
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-sm font-semibold text-neutral-900">前回閲覧後の新着</h2>
-            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white text-xs font-bold">
+      {/* タブ */}
+      <div className="flex gap-1 bg-neutral-100 p-1 rounded-xl w-fit">
+        <button
+          onClick={() => setActiveTab("commits")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            activeTab === "commits"
+              ? "bg-white text-neutral-900 shadow-sm"
+              : "text-neutral-500 hover:text-neutral-700"
+          }`}
+        >
+          コミット
+          {unreadCommits.length > 0 && (
+            <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-500 text-white text-[10px] font-bold">
               {unreadCommits.length}
             </span>
-          </div>
-          <div className="space-y-3">
-            {unreadCommits.map((commit) => (
-              <CommitCard key={commit.id} commit={commit} isUnread />
-            ))}
-          </div>
-        </section>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab("branches")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            activeTab === "branches"
+              ? "bg-white text-neutral-900 shadow-sm"
+              : "text-neutral-500 hover:text-neutral-700"
+          }`}
+        >
+          ブランチ
+          {branches.length > 0 && (
+            <span className="ml-1.5 text-xs text-neutral-400 font-normal">{branches.length}</span>
+          )}
+        </button>
+      </div>
+
+      {/* コミットタブ */}
+      {activeTab === "commits" && (
+        <div className="space-y-8">
+          {unreadCommits.length > 0 && (
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <h2 className="text-sm font-semibold text-neutral-900">前回閲覧後の新着</h2>
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white text-xs font-bold">
+                  {unreadCommits.length}
+                </span>
+              </div>
+              <div className="space-y-3">
+                {unreadCommits.map((commit) => (
+                  <CommitCard key={commit.id} commit={commit} isUnread />
+                ))}
+              </div>
+            </section>
+          )}
+
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-neutral-900">
+                コミット履歴
+                <span className="ml-2 font-normal text-neutral-400">({pagination.total}件)</span>
+              </h2>
+              <div className="flex items-center gap-1 text-xs text-neutral-400">
+                <GitBranch className="w-3 h-3" />
+                {repo.default_branch}
+              </div>
+            </div>
+
+            {allCommits.length === 0 ? (
+              <div className="text-center py-12 text-sm text-neutral-400">
+                コミットがありません
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {allCommits.map((commit) => (
+                  <CommitCard key={commit.id} commit={commit} />
+                ))}
+              </div>
+            )}
+
+            {pagination.totalPages > 1 && (
+              <div className="flex items-center justify-center gap-3 mt-6">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full text-xs"
+                  disabled={pagination.page <= 1}
+                  onClick={() => handlePageChange(pagination.page - 1)}
+                >
+                  前へ
+                </Button>
+                <span className="text-xs text-neutral-400">
+                  {pagination.page} / {pagination.totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full text-xs"
+                  disabled={pagination.page >= pagination.totalPages}
+                  onClick={() => handlePageChange(pagination.page + 1)}
+                >
+                  次へ
+                </Button>
+              </div>
+            )}
+          </section>
+        </div>
       )}
 
-      {/* コミット履歴 */}
-      <section>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-neutral-900">
-            コミット履歴
-            <span className="ml-2 font-normal text-neutral-400">({pagination.total}件)</span>
-          </h2>
-          <div className="flex items-center gap-1 text-xs text-neutral-400">
-            <GitBranch className="w-3 h-3" />
-            {repo.default_branch}
-          </div>
+      {/* ブランチタブ */}
+      {activeTab === "branches" && (
+        <div>
+          {branches.length === 0 ? (
+            <p className="text-sm text-neutral-400 text-center py-12">ブランチ情報を読み込み中...</p>
+          ) : (
+            <BranchGraph
+              repositoryId={id}
+              branches={branches}
+              defaultBranch={repo.default_branch}
+            />
+          )}
         </div>
-
-        {allCommits.length === 0 ? (
-          <div className="text-center py-12 text-sm text-neutral-400">
-            コミットがありません
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {allCommits.map((commit) => (
-              <CommitCard key={commit.id} commit={commit} />
-            ))}
-          </div>
-        )}
-
-        {/* ページネーション */}
-        {pagination.totalPages > 1 && (
-          <div className="flex items-center justify-center gap-3 mt-6">
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-full text-xs"
-              disabled={pagination.page <= 1}
-              onClick={() => handlePageChange(pagination.page - 1)}
-            >
-              前へ
-            </Button>
-            <span className="text-xs text-neutral-400">
-              {pagination.page} / {pagination.totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-full text-xs"
-              disabled={pagination.page >= pagination.totalPages}
-              onClick={() => handlePageChange(pagination.page + 1)}
-            >
-              次へ
-            </Button>
-          </div>
-        )}
-      </section>
+      )}
     </div>
   );
 }
