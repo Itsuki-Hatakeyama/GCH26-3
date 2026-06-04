@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronUp, ExternalLink, User } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, GitBranch, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import TechBadge from "@/components/TechBadge";
 import QualityScore from "@/components/QualityScore";
@@ -52,9 +52,10 @@ export interface CommitWithSummary {
 interface CommitCardProps {
   commit: CommitWithSummary;
   isUnread?: boolean;
+  branch?: string;
 }
 
-export default function CommitCard({ commit, isUnread = false }: CommitCardProps) {
+export default function CommitCard({ commit, isUnread = false, branch }: CommitCardProps) {
   const [showOriginal, setShowOriginal] = useState(false);
   const s = commit.commit_summaries?.[0] ?? null;
 
@@ -78,14 +79,23 @@ export default function CommitCard({ commit, isUnread = false }: CommitCardProps
           <p className="text-sm font-semibold text-gray-900 leading-snug">
             {commit.message.split('\n')[0]}
           </p>
-          {/* 著者 */}
-          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+          {/* 著者・ブランチ */}
+          <div className="flex items-center gap-1.5 text-xs text-gray-500 flex-wrap">
             <User className="w-3 h-3 shrink-0" />
             <span className="font-medium">{commit.author_name}</span>
             <span className="text-gray-300">·</span>
             <span>{date}</span>
             <span className="text-gray-300">·</span>
             <span className="font-mono text-gray-400">{commit.sha.slice(0, 7)}</span>
+            {branch && (
+              <>
+                <span className="text-gray-300">·</span>
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-500 font-mono">
+                  <GitBranch className="w-2.5 h-2.5" />
+                  {branch}
+                </span>
+              </>
+            )}
           </div>
           {/* AI平易化 */}
           {s && (

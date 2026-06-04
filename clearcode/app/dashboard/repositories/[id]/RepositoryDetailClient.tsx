@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { ExternalLink, RefreshCw, GitBranch } from "lucide-react";
+import { ExternalLink, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CommitCard, { type CommitWithSummary } from "@/components/CommitCard";
 import type { Repository } from "@/types/database";
@@ -98,6 +98,33 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  // 日付ラベル
+  const dateLabel = (iso: string) => {
+    const d = new Date(iso);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const fmt = (dt: Date) => `${dt.getFullYear()}/${dt.getMonth() + 1}/${dt.getDate()}`;
+    if (fmt(d) === fmt(today)) return "今日";
+    if (fmt(d) === fmt(yesterday)) return "昨日";
+    return new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "long", day: "numeric" }).format(d);
+  };
+
+  // コミットを日付でグループ化
+  const groupedCommits = useMemo(() => {
+    const groups: { label: string; commits: CommitWithSummary[] }[] = [];
+    const seen = new Map<string, number>();
+    for (const c of allCommits) {
+      const label = dateLabel(c.committed_at);
+      if (!seen.has(label)) {
+        seen.set(label, groups.length);
+        groups.push({ label, commits: [] });
+      }
+      groups[seen.get(label)!].commits.push(c);
+    }
+    return groups;
+  }, [allCommits]);
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -180,7 +207,7 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
           </div>
           <div className="space-y-3">
             {unreadCommits.map((commit) => (
-              <CommitCard key={commit.id} commit={commit} isUnread />
+              <CommitCard key={commit.id} commit={commit} isUnread branch={repo.default_branch} />
             ))}
           </div>
         </section>
@@ -188,25 +215,29 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
 
       {/* コミット履歴 */}
       <section>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-neutral-900">
-            コミット履歴
-            <span className="ml-2 font-normal text-neutral-400">({pagination.total}件)</span>
-          </h2>
-          <div className="flex items-center gap-1 text-xs text-neutral-400">
-            <GitBranch className="w-3 h-3" />
-            {repo.default_branch}
-          </div>
-        </div>
+        <h2 className="text-sm font-semibold text-neutral-900 mb-4">
+          コミット履歴
+          <span className="ml-2 font-normal text-neutral-400">({pagination.total}件)</span>
+        </h2>
 
         {allCommits.length === 0 ? (
           <div className="text-center py-12 text-sm text-neutral-400">
             コミットがありません
           </div>
         ) : (
-          <div className="space-y-3">
-            {allCommits.map((commit) => (
-              <CommitCard key={commit.id} commit={commit} />
+          <div className="space-y-6">
+            {groupedCommits.map((group) => (
+              <div key={group.label}>
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="text-xs font-medium text-neutral-400">{group.label}</span>
+                  <div className="flex-1 h-px bg-neutral-100" />
+                </div>
+                <div className="space-y-3">
+                  {group.commits.map((commit) => (
+                    <CommitCard key={commit.id} commit={commit} branch={repo.default_branch} />
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         )}
