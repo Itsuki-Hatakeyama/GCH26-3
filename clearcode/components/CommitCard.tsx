@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronUp, ExternalLink, GitBranch, Loader2, Sparkles, User } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, GitBranch, GitMerge, Loader2, Sparkles, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import TechBadge from "@/components/TechBadge";
 import QualityScore from "@/components/QualityScore";
@@ -12,6 +12,24 @@ interface Technology {
   name: string;
   category: string;
   language?: string;
+}
+
+function parseMergeInfo(message: string, defaultBranch?: string): { source: string; target: string } | null {
+  const first = message.split("\n")[0].trim();
+
+  // Merge branch 'feature/x' into develop
+  const intoMatch = first.match(/^Merge branch '(.+)' into (.+)$/);
+  if (intoMatch) return { source: intoMatch[1], target: intoMatch[2] };
+
+  // Merge branch 'feature/x'  (into default branch)
+  const branchMatch = first.match(/^Merge branch '(.+)'$/);
+  if (branchMatch) return { source: branchMatch[1], target: defaultBranch ?? "main" };
+
+  // Merge pull request #N from user/feature/x
+  const prMatch = first.match(/^Merge pull request #\d+ from [^/]+\/(.+)$/);
+  if (prMatch) return { source: prMatch[1], target: defaultBranch ?? "main" };
+
+  return null;
 }
 
 const CATEGORY_STYLES: Record<string, { bg: string; text: string; border: string }> = {
@@ -45,6 +63,7 @@ export interface CommitWithSummary {
   html_url: string;
   repository_id: string;
   changed_files: string[] | null;
+  branch_names: string[] | null;
   // Supabase は一対多で返すので配列（UNIQUE制約があっても）
   commit_summaries: CommitSummaryData[];
 }
@@ -52,15 +71,18 @@ export interface CommitWithSummary {
 interface CommitCardProps {
   commit: CommitWithSummary;
   isUnread?: boolean;
-  branch?: string;
+  selectedBranch?: string | null;
+  defaultBranch?: string;
 }
 
-export default function CommitCard({ commit, isUnread = false, branch }: CommitCardProps) {
+export default function CommitCard({ commit, isUnread = false, selectedBranch, defaultBranch }: CommitCardProps) {
   const [showOriginal, setShowOriginal] = useState(false);
   const [summaryData, setSummaryData] = useState<CommitSummaryData | null>(commit.commit_summaries?.[0] ?? null);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const s = summaryData;
+  const isMerged = !!(defaultBranch && commit.branch_names?.includes(defaultBranch));
+  const mergeInfo = parseMergeInfo(commit.message, defaultBranch);
 
   const handleGenerateSummary = async () => {
     setGenerating(true);
@@ -115,16 +137,42 @@ export default function CommitCard({ commit, isUnread = false, branch }: CommitC
             <span>{date}</span>
             <span className="text-gray-300">·</span>
             <span className="font-mono text-gray-400">{commit.sha.slice(0, 7)}</span>
-            {branch && (
-              <>
-                <span className="text-gray-300">·</span>
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-500 font-mono">
-                  <GitBranch className="w-2.5 h-2.5" />
-                  {branch}
-                </span>
-              </>
-            )}
+            {(() => {
+              const branches = selectedBranch
+                ? [selectedBranch]
+                : (commit.branch_names ?? []);
+              const shown = branches.slice(0, 3);
+              const rest = branches.length - shown.length;
+              if (shown.length === 0) return null;
+              return (
+                <>
+                  <span className="text-gray-300">·</span>
+                  {shown.map((b) => (
+                    <span key={b} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-500 font-mono max-w-[120px] truncate">
+                      <GitBranch className="w-2.5 h-2.5 shrink-0" />
+                      {b}
+                    </span>
+                  ))}
+                  {rest > 0 && (
+                    <span className="text-xs text-neutral-400">+{rest}</span>
+                  )}
+                </>
+              );
+            })()}
           </div>
+          {/* マージフロー表示 */}
+          {mergeInfo && (
+            <div className="flex items-center gap-1.5 text-xs">
+              <GitMerge className="w-3 h-3 text-violet-400 shrink-0" />
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-violet-50 text-violet-700 font-mono border border-violet-100 max-w-[120px] truncate">
+                {mergeInfo.source}
+              </span>
+              <span className="text-neutral-400">→</span>
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-violet-50 text-violet-700 font-mono border border-violet-100 max-w-[120px] truncate">
+                {mergeInfo.target}
+              </span>
+            </div>
+          )}
           {/* AI平易化 or 生成ボタン */}
           {s ? (
             <p className="text-sm text-gray-600 leading-snug pt-0.5">
@@ -148,14 +196,21 @@ export default function CommitCard({ commit, isUnread = false, branch }: CommitC
             </div>
           )}
         </div>
-        <a
-          href={commit.html_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-gray-300 hover:text-gray-500 shrink-0 mt-0.5"
-        >
-          <ExternalLink className="w-4 h-4" />
-        </a>
+        <div className="flex items-center gap-2 shrink-0 mt-0.5">
+          {isMerged && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200">
+              マージ済み
+            </span>
+          )}
+          <a
+            href={commit.html_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gray-300 hover:text-gray-500"
+          >
+            <ExternalLink className="w-4 h-4" />
+          </a>
+        </div>
       </div>
 
       {/* カテゴリバッジ */}

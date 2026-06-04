@@ -367,7 +367,7 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
           </div>
           <div className="space-y-3">
             {unreadCommits.map((commit) => (
-              <CommitCard key={commit.id} commit={commit} isUnread branch={repo.default_branch} />
+              <CommitCard key={commit.id} commit={commit} isUnread selectedBranch={selectedBranch} defaultBranch={repo.default_branch} />
             ))}
           </div>
         </section>
@@ -403,7 +403,7 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
                 </div>
                 <div className="space-y-3">
                   {group.commits.map((commit) => (
-                    <CommitCard key={commit.id} commit={commit} branch={repo.default_branch} />
+                    <CommitCard key={commit.id} commit={commit} selectedBranch={selectedBranch} defaultBranch={repo.default_branch} />
                   ))}
                 </div>
               </div>
