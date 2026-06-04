@@ -171,6 +171,15 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
           {repo.description && (
             <p className="text-sm text-neutral-400 mt-1">{repo.description}</p>
           )}
+          <a
+            href={repo.html_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 mt-2 text-xs text-neutral-400 hover:text-neutral-700 transition-colors"
+          >
+            <ExternalLink className="w-3 h-3" />
+            {repo.html_url}
+          </a>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
