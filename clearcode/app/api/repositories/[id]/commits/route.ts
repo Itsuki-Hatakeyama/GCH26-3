@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSession } from "@/lib/auth";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 15;
 
 function supabase() {
   return createClient(

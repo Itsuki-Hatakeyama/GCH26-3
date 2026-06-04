@@ -9,20 +9,20 @@ import type { Repository } from "@/types/database";
 
 interface Pagination {
   page: number;
-  totalPages: number;
-  total: number;
+  hasNextPage: boolean;
 }
 
 export default function RepositoryDetailClient({ id }: { id: string }) {
   const [repo, setRepo] = useState<Repository | null>(null);
   const [unreadCommits, setUnreadCommits] = useState<CommitWithSummary[]>([]);
   const [allCommits, setAllCommits] = useState<CommitWithSummary[]>([]);
-  const [pagination, setPagination] = useState<Pagination>({ page: 1, totalPages: 1, total: 0 });
+  const [pagination, setPagination] = useState<Pagination>({ page: 1, hasNextPage: false });
   const [loading, setLoading] = useState(true);
+  const [pageLoading, setPageLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchCommits = useCallback(
+  const fetchCommitsFromDB = useCallback(
     async (page = 1) => {
       const [unreadRes, allRes] = await Promise.all([
         fetch(`/api/repositories/${id}/commits?unread_only=true`),
@@ -35,38 +35,35 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
 
       setUnreadCommits(unread.commits);
       setAllCommits(all.commits);
-      setPagination({
-        page: all.pagination.page,
-        totalPages: all.pagination.totalPages,
-        total: all.pagination.total,
-      });
+      return all;
     },
     [id]
   );
 
-  const fetchAll = useCallback(
+  // ページ指定でGitHubからsyncしてからDBを表示する
+  const syncAndFetchPage = useCallback(
     async (page = 1) => {
-      const repoRes = await fetch(`/api/repositories/${id}`);
-      if (!repoRes.ok) throw new Error("リポジトリが見つかりません");
-      setRepo(await repoRes.json());
-      await fetchCommits(page);
+      const syncRes = await fetch(`/api/repositories/${id}/sync?page=${page}`, { method: "POST" });
+      const syncData = syncRes.ok ? await syncRes.json() : { hasNextPage: false };
+      const all = await fetchCommitsFromDB(page);
+      setPagination({ page, hasNextPage: syncData.hasNextPage ?? false });
+      return all;
     },
-    [id, fetchCommits]
+    [id, fetchCommitsFromDB]
   );
 
-  const syncAndFetch = useCallback(
-    async (page = 1) => {
-      await fetch(`/api/repositories/${id}/sync`, { method: "POST" });
-      await fetchAll(page);
-    },
-    [id, fetchAll]
-  );
+  const fetchRepo = useCallback(async () => {
+    const repoRes = await fetch(`/api/repositories/${id}`);
+    if (!repoRes.ok) throw new Error("リポジトリが見つかりません");
+    setRepo(await repoRes.json());
+  }, [id]);
 
-  // 初回マウント: GitHub から sync してから表示
+  // 初回マウント: page=1 をsync→表示
   useEffect(() => {
     (async () => {
       try {
-        await syncAndFetch();
+        await fetchRepo();
+        await syncAndFetchPage(1);
         await fetch(`/api/repositories/${id}/viewed`, { method: "PATCH" });
       } catch (e) {
         setError(e instanceof Error ? e.message : "エラーが発生しました");
@@ -74,28 +71,33 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
         setLoading(false);
       }
     })();
-  }, [id, syncAndFetch]);
+  }, [id, fetchRepo, syncAndFetchPage]);
 
-  // 30秒ポーリング
+  // 30秒ポーリング（DBからのみ再取得、GitHubは叩かない）
   useEffect(() => {
     const timer = setInterval(() => {
-      fetchCommits(pagination.page).catch(() => {});
+      fetchCommitsFromDB(pagination.page).catch(() => {});
     }, 30_000);
     return () => clearInterval(timer);
-  }, [fetchCommits, pagination.page]);
+  }, [fetchCommitsFromDB, pagination.page]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await syncAndFetch(pagination.page);
+      await syncAndFetchPage(pagination.page);
     } finally {
       setRefreshing(false);
     }
   };
 
   const handlePageChange = async (newPage: number) => {
-    await fetchCommits(newPage);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setPageLoading(true);
+    try {
+      await syncAndFetchPage(newPage);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } finally {
+      setPageLoading(false);
+    }
   };
 
   // 日付ラベル
@@ -217,10 +219,16 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
       <section>
         <h2 className="text-sm font-semibold text-neutral-900 mb-4">
           コミット履歴
-          <span className="ml-2 font-normal text-neutral-400">({pagination.total}件)</span>
+          <span className="ml-2 font-normal text-neutral-400">（{pagination.page}ページ目）</span>
         </h2>
 
-        {allCommits.length === 0 ? (
+        {pageLoading ? (
+          <div className="space-y-3">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-28 bg-neutral-100 rounded-xl animate-pulse" />
+            ))}
+          </div>
+        ) : allCommits.length === 0 ? (
           <div className="text-center py-12 text-sm text-neutral-400">
             コミットがありません
           </div>
@@ -243,25 +251,25 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
         )}
 
         {/* ページネーション */}
-        {pagination.totalPages > 1 && (
+        {(pagination.page > 1 || pagination.hasNextPage) && (
           <div className="flex items-center justify-center gap-3 mt-6">
             <Button
               variant="outline"
               size="sm"
               className="rounded-full text-xs"
-              disabled={pagination.page <= 1}
+              disabled={pagination.page <= 1 || pageLoading}
               onClick={() => handlePageChange(pagination.page - 1)}
             >
               前へ
             </Button>
             <span className="text-xs text-neutral-400">
-              {pagination.page} / {pagination.totalPages}
+              {pagination.page} ページ目
             </span>
             <Button
               variant="outline"
               size="sm"
               className="rounded-full text-xs"
-              disabled={pagination.page >= pagination.totalPages}
+              disabled={!pagination.hasNextPage || pageLoading}
               onClick={() => handlePageChange(pagination.page + 1)}
             >
               次へ

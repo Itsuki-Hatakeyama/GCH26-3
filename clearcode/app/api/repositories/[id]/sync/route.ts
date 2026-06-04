@@ -5,7 +5,9 @@ import { github } from '@/lib/github'
 import { decrypt } from '@/lib/crypto'
 import { generateSummary } from '@/lib/services/summary-service'
 
-export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+const PER_PAGE = 15
+
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession()
   if (!session) {
     return NextResponse.json({ error: { code: 'UNAUTHORIZED', message: 'ログインが必要です' } }, { status: 401 })
@@ -34,13 +36,15 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: { code: 'NOT_CONNECTED', message: 'GitHub未連携です' } }, { status: 400 })
   }
 
+  const page = parseInt(req.nextUrl.searchParams.get('page') ?? '1', 10)
   const accessToken = await decrypt(integration.access_token_encrypted)
-  const commits = await github.getCommits(accessToken, repo.owner, repo.name, 30)
+  const commits = await github.getCommits(accessToken, repo.owner, repo.name, PER_PAGE, undefined, page)
+  const hasNextPage = commits.length === PER_PAGE
 
-  console.log(`[sync] repo=${repo.owner}/${repo.name} commits_from_github=${commits.length}`)
+  console.log(`[sync] repo=${repo.owner}/${repo.name} page=${page} commits_from_github=${commits.length}`)
 
   if (commits.length === 0) {
-    return NextResponse.json({ synced: 0 })
+    return NextResponse.json({ synced: 0, hasNextPage: false })
   }
 
   const rows = commits.map((c: {
@@ -105,5 +109,5 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
-  return NextResponse.json({ synced: rows.length, saved: upserted?.length ?? 0 })
+  return NextResponse.json({ synced: rows.length, saved: upserted?.length ?? 0, hasNextPage })
 }
