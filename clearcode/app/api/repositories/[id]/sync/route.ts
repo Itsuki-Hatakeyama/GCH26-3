@@ -72,10 +72,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: { code: 'DB_ERROR', message: 'コミット保存に失敗しました', detail: error.message } }, { status: 500 })
   }
 
-  // 変更ファイル一覧をGitHubから取得してDBに保存（要約は手動ボタンで生成）
+  // changed_files が未取得のコミットだけ GitHub から取得してDBに保存
   const commitIds = (upserted ?? []).map((r) => r.id)
+  const { data: existingFiles } = await supabaseAdmin
+    .from('commits')
+    .select('id, changed_files')
+    .in('id', commitIds)
+
+  const needFiles = new Set(
+    (existingFiles ?? [])
+      .filter((c) => !c.changed_files || (c.changed_files as string[]).length === 0)
+      .map((c) => c.id)
+  )
+
   for (const commitId of commitIds) {
-    const commitRow = rows[commitIds.indexOf(commitId)]
+    if (!needFiles.has(commitId)) continue
+    const idx = commitIds.indexOf(commitId)
+    const commitRow = rows[idx]
     if (!commitRow) continue
     try {
       const commitDetail = await github.getCommit(accessToken, repo.owner, repo.name, commitRow.sha)
