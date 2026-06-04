@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ExternalLink, RefreshCw } from "lucide-react";
+import { ExternalLink, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CommitCard, { type CommitWithSummary } from "@/components/CommitCard";
 import type { Repository } from "@/types/database";
@@ -13,6 +14,7 @@ interface Pagination {
 }
 
 export default function RepositoryDetailClient({ id }: { id: string }) {
+  const router = useRouter();
   const [repo, setRepo] = useState<Repository | null>(null);
   const [unreadCommits, setUnreadCommits] = useState<CommitWithSummary[]>([]);
   const [allCommits, setAllCommits] = useState<CommitWithSummary[]>([]);
@@ -80,6 +82,13 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
     }, 30_000);
     return () => clearInterval(timer);
   }, [fetchCommitsFromDB, pagination.page]);
+
+  const handleDelete = async () => {
+    if (!repo) return;
+    if (!confirm(`「${repo.name}」を削除しますか？\nコミット履歴や要約データもすべて削除されます。`)) return;
+    const res = await fetch(`/api/repositories/${id}`, { method: "DELETE" });
+    if (res.ok) router.push("/dashboard");
+  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -203,6 +212,15 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
           >
             <RefreshCw className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
             更新
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 rounded-full text-xs text-red-500 hover:text-red-600 hover:border-red-300"
+            onClick={handleDelete}
+          >
+            <Trash2 className="w-3 h-3" />
+            削除
           </Button>
         </div>
       </div>
