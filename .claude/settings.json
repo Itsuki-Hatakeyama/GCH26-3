@@ -23,7 +23,8 @@
       "Bash(cat)",
       "Read(//private/tmp/clearcode-test/**)",
       "Bash(node test2.js)",
-      "Bash(mkdir -p /Users/yugo_suzuki/GCH26-3/GCH26-3/clearcode/app/api/repositories/\\\\[id\\\\]/members)"
+      "Bash(mkdir -p /Users/yugo_suzuki/GCH26-3/GCH26-3/clearcode/app/api/repositories/\\\\[id\\\\]/members)",
+      "Bash(xargs cat)"
     ],
     "additionalDirectories": [
       "/Users/yugo_suzuki/GCH26-3/GCH26-3/clearcode/app/api/repositories/[id]"

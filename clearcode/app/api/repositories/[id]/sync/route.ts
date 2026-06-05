@@ -18,17 +18,32 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .from('repositories')
     .select('*')
     .eq('id', id)
-    .eq('user_id', session.user_id)
     .single()
 
   if (!repo) {
     return NextResponse.json({ error: { code: 'NOT_FOUND', message: 'リポジトリが見つかりません' } }, { status: 404 })
   }
 
+  // オーナーでない場合はアクティブメンバーか確認
+  if (repo.user_id !== session.user_id) {
+    const { data: membership } = await supabaseAdmin
+      .from('repository_members')
+      .select('id')
+      .eq('repository_id', id)
+      .eq('user_id', session.user_id)
+      .eq('status', 'active')
+      .single()
+
+    if (!membership) {
+      return NextResponse.json({ error: { code: 'NOT_FOUND', message: 'リポジトリが見つかりません' } }, { status: 404 })
+    }
+  }
+
+  // GitHub トークンはリポジトリオーナーのものを使用
   const { data: integration } = await supabaseAdmin
     .from('github_integrations')
     .select('access_token_encrypted')
-    .eq('user_id', session.user_id)
+    .eq('user_id', repo.user_id)
     .single()
 
   if (!integration) {
