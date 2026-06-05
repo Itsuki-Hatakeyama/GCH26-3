@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface Repository {
@@ -18,6 +19,7 @@ interface Repository {
 export default function DashboardPage() {
   const [repos, setRepos] = useState<Repository[]>([])
   const [loading, setLoading] = useState(true)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/repositories')
@@ -25,6 +27,21 @@ export default function DashboardPage() {
       .then((d) => setRepos(d.repositories ?? []))
       .finally(() => setLoading(false))
   }, [])
+
+  const handleDelete = async (e: React.MouseEvent, repoId: string, repoName: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!confirm(`「${repoName}」を削除しますか？\nコミット履歴や要約データもすべて削除されます。`)) return
+    setDeletingId(repoId)
+    try {
+      const res = await fetch(`/api/repositories/${repoId}`, { method: 'DELETE' })
+      if (res.ok) {
+        setRepos((prev) => prev.filter((r) => r.id !== repoId))
+      }
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   return (
     <div>
@@ -52,7 +69,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {repos.map((repo) => (
             <Link key={repo.id} href={`/dashboard/repositories/${repo.id}`}>
-              <div className="bg-white rounded-xl border border-neutral-100 p-5 hover:border-neutral-300 transition-colors cursor-pointer h-full">
+              <div className="relative bg-white rounded-xl border border-neutral-100 p-5 hover:border-neutral-300 transition-colors cursor-pointer h-full group">
                 <div className="flex justify-between items-start mb-2">
                   <span className="font-medium text-black text-sm truncate max-w-[180px]">{repo.name}</span>
                   <div className="flex items-center gap-2 flex-shrink-0">
@@ -64,6 +81,13 @@ export default function DashboardPage() {
                         {repo.unread_count}
                       </span>
                     )}
+                    <button
+                      onClick={(e) => handleDelete(e, repo.id, repo.name)}
+                      disabled={deletingId === repo.id}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-red-50 text-neutral-300 hover:text-red-500"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
                 <p className="text-xs text-neutral-400 mb-3 truncate">{repo.full_name}</p>

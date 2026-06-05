@@ -3,9 +3,10 @@ import { getSession } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { github } from '@/lib/github'
 import { decrypt } from '@/lib/crypto'
-import { generateSummary } from '@/lib/services/summary-service'
 
-export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+const PER_PAGE = 15
+
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession()
   if (!session) {
     return NextResponse.json({ error: { code: 'UNAUTHORIZED', message: 'ログインが必要です' } }, { status: 401 })
@@ -34,64 +35,85 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: { code: 'NOT_CONNECTED', message: 'GitHub未連携です' } }, { status: 400 })
   }
 
+  const page = parseInt(req.nextUrl.searchParams.get('page') ?? '1', 10)
   const accessToken = await decrypt(integration.access_token_encrypted)
-  const commits = await github.getCommits(accessToken, repo.owner, repo.name, 30)
 
-  console.log(`[sync] repo=${repo.owner}/${repo.name} commits_from_github=${commits.length}`)
+  // 全ブランチを取得
+  const allBranches = await github.getBranches(accessToken, repo.owner, repo.name) as { name: string }[]
+  const branchNames = allBranches.map((b) => b.name)
 
-  if (commits.length === 0) {
-    return NextResponse.json({ synced: 0 })
+  if (branchNames.length === 0) {
+    return NextResponse.json({ synced: 0, hasNextPage: false, branches: [] })
   }
 
-  const rows = commits.map((c: {
-    sha: string
-    commit: { message: string; author: { name: string; email: string; date: string } }
-    html_url: string
-  }) => ({
-    repository_id: id,
-    sha: c.sha,
-    message: c.commit.message,
-    author_name: c.commit.author.name,
-    author_email: c.commit.author.email,
-    committed_at: c.commit.author.date,
-    html_url: c.html_url,
-  }))
+  // 全ブランチのコミットを並列取得
+  const branchResults = await Promise.all(
+    branchNames.map(async (branchName) => {
+      const commits = await github.getCommits(accessToken, repo.owner, repo.name, PER_PAGE, branchName, page)
+      return { branchName, commits: commits as {
+        sha: string
+        commit: { message: string; author: { name: string; email: string; date: string } }
+        html_url: string
+      }[] }
+    })
+  )
 
-  const { error, data: upserted } = await supabaseAdmin
-    .from('commits')
-    .upsert(rows, { onConflict: 'repository_id,sha' })
-    .select('id')
+  const hasNextPage = branchResults.some((r) => r.commits.length === PER_PAGE)
 
-  console.log(`[sync] upsert result: count=${upserted?.length ?? 0} error=${JSON.stringify(error)}`)
-
-  if (error) {
-    console.error('[sync] DB error:', error)
-    return NextResponse.json({ error: { code: 'DB_ERROR', message: 'コミット保存に失敗しました', detail: error.message } }, { status: 500 })
-  }
-
-  // 要約がまだないコミットに対して Gemini で生成（最新5件のみ、レート制限対策）
-  const commitIds = (upserted ?? []).map((r) => r.id)
-  if (commitIds.length > 0) {
-    const { data: existingSummaries } = await supabaseAdmin
-      .from('commit_summaries')
-      .select('commit_id')
-      .in('commit_id', commitIds)
-
-    const alreadySummarized = new Set((existingSummaries ?? []).map((s) => s.commit_id))
-    const toSummarize = commitIds.filter((cid) => !alreadySummarized.has(cid)).slice(0, 5)
-
-    for (const commitId of toSummarize) {
-      const commitRow = rows[commitIds.indexOf(commitId)]
-      if (!commitRow) continue
-      const summary = await generateSummary(commitRow.message, '')
-      if (summary) {
-        await supabaseAdmin.from('commit_summaries').upsert(
-          { commit_id: commitId, ...summary },
-          { onConflict: 'commit_id' }
-        )
+  // SHA をキーにコミットを集約（同じコミットが複数ブランチにある場合に重複排除）
+  const commitMap = new Map<string, { row: Record<string, unknown>; branches: string[] }>()
+  for (const { branchName, commits } of branchResults) {
+    for (const c of commits) {
+      if (commitMap.has(c.sha)) {
+        commitMap.get(c.sha)!.branches.push(branchName)
+      } else {
+        commitMap.set(c.sha, {
+          row: {
+            repository_id: id,
+            sha: c.sha,
+            message: c.commit.message,
+            author_name: c.commit.author.name,
+            author_email: c.commit.author.email,
+            committed_at: c.commit.author.date,
+            html_url: c.html_url,
+          },
+          branches: [branchName],
+        })
       }
     }
   }
 
-  return NextResponse.json({ synced: rows.length, saved: upserted?.length ?? 0 })
+  if (commitMap.size === 0) {
+    return NextResponse.json({ synced: 0, hasNextPage: false, branches: branchNames })
+  }
+
+  const rows = Array.from(commitMap.values()).map((v) => v.row)
+
+  // コミットをupsert
+  const { error, data: upserted } = await supabaseAdmin
+    .from('commits')
+    .upsert(rows, { onConflict: 'repository_id,sha' })
+    .select('id, sha, branch_names')
+
+  if (error) {
+    console.error('[sync] DB error:', error)
+    return NextResponse.json({ error: { code: 'DB_ERROR', message: 'コミット保存に失敗しました' } }, { status: 500 })
+  }
+
+  // branch_names を更新（既存の配列に新しいブランチ名をマージ）
+  for (const commit of upserted ?? []) {
+    const newBranches = commitMap.get(commit.sha)?.branches ?? []
+    const existing: string[] = commit.branch_names ?? []
+    const merged = [...new Set([...existing, ...newBranches])]
+    if (merged.length !== existing.length) {
+      await supabaseAdmin
+        .from('commits')
+        .update({ branch_names: merged })
+        .eq('id', commit.id)
+    }
+  }
+
+  console.log(`[sync] repo=${repo.owner}/${repo.name} page=${page} branches=${branchNames.length} commits=${commitMap.size}`)
+
+  return NextResponse.json({ synced: commitMap.size, hasNextPage, branches: branchNames })
 }

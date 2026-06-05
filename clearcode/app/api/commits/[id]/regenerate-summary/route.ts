@@ -42,17 +42,32 @@ export async function POST(
   // diff は crypto.ts / github.ts 実装後に追加予定（担当: D）
   // 現時点はコミットメッセージのみで生成
   const result = await generateSummary(commit.message, "");
+  console.log('[regenerate] generateSummary result:', JSON.stringify(result))
 
   if (!result) {
     return NextResponse.json(
-      { error: { code: "QUOTA_EXCEEDED", message: "Geminiクォータ超過のため生成できませんでした" } },
-      { status: 503 }
+      { error: { code: "UNKNOWN", message: "要約の生成に失敗しました" } },
+      { status: 500 }
+    );
+  }
+
+  if ("error" in result) {
+    const messages: Record<string, string> = {
+      QUOTA_EXCEEDED: "Geminiの1日の利用上限に達しました。明日再度お試しください",
+      AUTH_ERROR: "Gemini APIキーが無効です。.env.local の GEMINI_API_KEY を確認してください",
+      UNKNOWN: "要約の生成に失敗しました",
+    };
+    return NextResponse.json(
+      { error: { code: result.error, message: messages[result.error] } },
+      { status: result.error === "QUOTA_EXCEEDED" ? 503 : 500 }
     );
   }
 
   const { error: upsertError } = await supabase()
     .from("commit_summaries")
     .upsert({ commit_id: id, ...result }, { onConflict: "commit_id" });
+
+  console.log('[regenerate] upsert error:', upsertError)
 
   if (upsertError) {
     return NextResponse.json(

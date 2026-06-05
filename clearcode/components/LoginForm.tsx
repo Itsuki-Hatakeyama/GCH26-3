@@ -12,7 +12,7 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: { preventDefault(): void }) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
@@ -44,8 +44,11 @@ export default function LoginForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col items-center gap-3">
-      <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md">
+    <div className="mx-auto w-full max-w-sm bg-white border border-gray-200 rounded-xl shadow-sm p-8">
+      <p className="text-sm font-medium text-gray-500 mb-5 tracking-wide uppercase">
+        メールアドレスでログイン
+      </p>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         <Input
           type="email"
           placeholder="your@gmail.com"
@@ -53,16 +56,19 @@ export default function LoginForm() {
           onChange={(e) => setEmail(e.target.value)}
           required
           disabled={loading}
-          className="flex-1"
+          className="w-full h-11 rounded-xl border-gray-200 bg-gray-50 placeholder:text-gray-400 focus-visible:ring-1 focus-visible:ring-gray-300 focus-visible:ring-offset-0"
         />
-        <Button type="submit" size="lg" disabled={loading} className="shrink-0">
+        <Button type="submit" size="lg" disabled={loading} className="w-full">
           {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-          {loading ? "処理中..." : "はじめる"}
+          {loading ? "処理中..." : "はじめる →"}
         </Button>
-      </div>
-      {error && (
-        <p className="text-red-500 text-sm">{error}</p>
-      )}
-    </form>
+        {error && (
+          <p className="text-red-500 text-sm text-center">{error}</p>
+        )}
+      </form>
+      <p className="mt-5 text-xs text-gray-400 text-center leading-relaxed">
+        初めての方は自動でアカウントを作成します
+      </p>
+    </div>
   );
 }

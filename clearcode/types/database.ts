@@ -37,6 +37,7 @@ export interface Commit {
   html_url: string;
   diff_url: string | null;
   languages: Record<string, unknown> | null;
+  branch_names: string[] | null;
   created_at: string;
 }
 
@@ -51,6 +52,7 @@ export interface CommitSummary {
   technology_categories: Record<string, string[]> | null;
   message_quality_score: number | null;
   message_quality_feedback: string | null;
+  change_categories: string[] | null;
   llm_model: string | null;
   generated_at: string;
 }

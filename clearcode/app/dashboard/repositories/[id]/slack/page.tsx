@@ -1,10 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams, useSearchParams } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
 
 interface Channel {
   id: string
@@ -21,38 +20,49 @@ interface SlackIntegration {
 
 function SlackPageContent() {
   const { id } = useParams<{ id: string }>()
+  const router = useRouter()
   const searchParams = useSearchParams()
   const [integration, setIntegration] = useState<SlackIntegration | null>(null)
   const [channels, setChannels] = useState<Channel[]>([])
   const [channelSearch, setChannelSearch] = useState('')
+  const [selected, setSelected] = useState<Channel | null>(null)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [slackMethod, setSlackMethod] = useState<'oauth' | 'bottoken'>('oauth')
 
   useEffect(() => {
-    // Slack連携状態を取得
+    const saved = localStorage.getItem('slack_method') as 'oauth' | 'bottoken' | null
+    if (saved) setSlackMethod(saved)
+
     fetch(`/api/repositories/${id}/slack`)
       .then((r) => r.json())
-      .then((d) => {
-        if (d.integration?.workspace_name) {
+      .then(async (d) => {
+        if (d.integration) {
           setIntegration(d.integration)
-          // チャンネル一覧取得
-          return fetch(`/api/slack/channels?repository_id=${id}`)
-            .then((r) => r.json())
-            .then((cd) => setChannels(cd.channels ?? []))
+          try {
+            const method = localStorage.getItem('slack_method') ?? 'oauth'
+            const url = method === 'bottoken'
+              ? `/api/slack/channels`
+              : `/api/slack/channels?repository_id=${id}`
+            const cd = await fetch(url).then((r) => r.json())
+            setChannels(cd.channels ?? [])
+          } catch {
+            // トークンが無効な場合はチャンネル取得をスキップ
+          }
         }
       })
       .finally(() => setLoading(false))
   }, [id, searchParams])
 
-  const selectChannel = async (channel: Channel) => {
+  const confirmChannel = async () => {
+    if (!selected) return
     setSaving(true)
     await fetch(`/api/repositories/${id}/slack`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channel_id: channel.id, channel_name: `#${channel.name}` }),
+      body: JSON.stringify({ channel_id: selected.id, channel_name: `#${selected.name}`, method: slackMethod }),
     })
-    setIntegration((prev) => prev ? { ...prev, channel_id: channel.id, channel_name: `#${channel.name}`, is_active: true } : prev)
-    setSaving(false)
+    router.push(`/dashboard/repositories/${id}`)
   }
 
   const disconnect = async () => {
@@ -60,6 +70,7 @@ function SlackPageContent() {
     await fetch(`/api/repositories/${id}/slack`, { method: 'DELETE' })
     setIntegration(null)
     setChannels([])
+    setSelected(null)
   }
 
   const filtered = channels.filter((c) => c.name.includes(channelSearch.toLowerCase()))
@@ -69,77 +80,130 @@ function SlackPageContent() {
   return (
     <div className="max-w-xl mx-auto">
       <div className="text-xs text-neutral-400 mb-6">
-        <Link href="/dashboard" className="hover:text-black">ホーム</Link> / <Link href={`/dashboard/repositories/${id}`} className="hover:text-black">リポジトリ</Link> / Slack連携
+        <Link href="/dashboard" className="hover:text-black">ホーム</Link>
+        {' '}／{' '}
+        <Link href={`/dashboard/repositories/${id}`} className="hover:text-black">リポジトリ</Link>
+        {' '}／ Slack連携
       </div>
-      <h1 className="text-2xl font-semibold mb-2">Slack連携</h1>
-      <p className="text-sm text-neutral-500 mb-8">このリポジトリの新しいコミットをSlackに通知します。</p>
+      <h1 className="text-xl font-semibold mb-1">Slack連携</h1>
+      <p className="text-sm text-neutral-500 mb-8">通知を送るワークスペースとチャンネルを設定してください。</p>
 
       {!integration ? (
-        /* フェーズA: 未連携 */
+        /* Phase A: 未連携 */
         <div className="bg-white rounded-xl border border-neutral-100 p-8 text-center">
-          <p className="text-sm text-neutral-600 mb-2">必要な権限</p>
-          <ul className="text-xs text-neutral-400 mb-8 space-y-1">
-            <li>・チャンネルへのメッセージ投稿</li>
-            <li>・チャンネル一覧の取得</li>
-          </ul>
-          <a href={`/api/auth/slack/start?repository_id=${id}`}>
-            <Button className="px-8">Slackで認証する</Button>
-          </a>
-        </div>
-      ) : integration.channel_id ? (
-        /* フェーズC: 連携完了 */
-        <div className="space-y-4">
-          <div className="bg-white rounded-xl border border-neutral-100 p-6">
-            <p className="text-xs text-neutral-400 mb-1">連携中のワークスペース</p>
-            <p className="font-medium text-black">{integration.workspace_name}</p>
-            <p className="text-xs text-neutral-400 mt-3 mb-1">通知先チャンネル</p>
-            <p className="font-medium text-black">{integration.channel_name}</p>
-          </div>
-          <p className="text-xs text-neutral-400 text-center">チャンネルを変更するには下から選択してください</p>
+          {slackMethod === 'oauth' ? (
+            <>
+              <p className="text-sm text-neutral-600 mb-2">Slackワークスペースを連携する</p>
+              <p className="text-xs text-neutral-400 mb-8 leading-relaxed">
+                ボタンを押すとSlackの認可画面が開きます。<br />
+                連携したいワークスペースを選択してください。
+              </p>
+              <a href={`/api/auth/slack/start?repository_id=${id}`}>
+                <button className="bg-gray-900 text-white text-sm font-medium px-8 py-2.5 rounded-lg hover:bg-gray-700 transition-colors">
+                  Slackと連携する（OAuth）
+                </button>
+              </a>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-neutral-600 mb-2">Bot Token方式で連携する</p>
+              <p className="text-xs text-neutral-400 mb-8 leading-relaxed">
+                環境変数の SLACK_BOT_TOKEN を使って連携します。<br />
+                チャンネルを選択するだけで設定完了です。
+              </p>
+              <button
+                onClick={async () => {
+                  const cd = await fetch(`/api/slack/channels`).then((r) => r.json())
+                  setChannels(cd.channels ?? [])
+                  setIntegration({ workspace_name: 'Bot Token', channel_id: '', channel_name: '', is_active: false })
+                }}
+                className="bg-gray-900 text-white text-sm font-medium px-8 py-2.5 rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                チャンネルを選択する
+              </button>
+            </>
+          )}
+          <p className="mt-6 text-xs text-gray-400">
+            連携方式は
+            <a href="/dashboard/profile" className="text-blue-600 hover:underline mx-1">プロフィール</a>
+            から変更できます
+          </p>
         </div>
       ) : (
-        /* フェーズB: 連携済み・チャンネル未選択 */
-        <div className="bg-white rounded-xl border border-neutral-100 p-6 mb-4">
-          <p className="text-sm text-neutral-600 mb-1">ワークスペース: <strong>{integration.workspace_name}</strong></p>
-          <p className="text-xs text-neutral-400">連携されました。通知先チャンネルを選択してください。</p>
-        </div>
-      )}
-
-      {/* チャンネル選択 (フェーズB・C共通) */}
-      {integration && channels.length > 0 && (
-        <div className="mt-6">
-          <h2 className="text-sm font-semibold mb-3">チャンネルを選択</h2>
-          <input
-            type="text"
-            placeholder="チャンネルを検索..."
-            value={channelSearch}
-            onChange={(e) => setChannelSearch(e.target.value)}
-            className="w-full border border-neutral-200 rounded-lg px-4 py-2 text-sm mb-3 outline-none focus:border-blue-400"
-          />
-          <div className="space-y-2 max-h-64 overflow-y-auto">
-            {filtered.map((ch) => (
-              <button
-                key={ch.id}
-                onClick={() => selectChannel(ch)}
-                disabled={saving}
-                className={`w-full flex justify-between items-center px-4 py-3 rounded-xl border text-left text-sm transition-colors ${
-                  integration.channel_id === ch.id
-                    ? 'border-blue-400 bg-blue-50'
-                    : 'border-neutral-100 hover:border-neutral-300'
-                }`}
-              >
-                <span className="font-medium">#{ch.name}</span>
-                <span className="text-xs text-neutral-400">{ch.num_members}人</span>
-              </button>
-            ))}
+        /* Phase B / C: 連携済み */
+        <>
+          <div className="bg-white rounded-xl border border-neutral-100 p-5 mb-6">
+            <p className="text-xs text-neutral-400 mb-1">連携中のワークスペース</p>
+            <p className="font-medium text-black">{integration.workspace_name}</p>
+            {integration.channel_id && (
+              <>
+                <p className="text-xs text-neutral-400 mt-3 mb-1">現在の通知先チャンネル</p>
+                <p className="font-medium text-black">{integration.channel_name}</p>
+              </>
+            )}
           </div>
-        </div>
-      )}
 
-      {integration && (
-        <button onClick={disconnect} className="mt-8 text-xs text-red-400 hover:text-red-600 underline">
-          Slack連携を解除する
-        </button>
+          <div>
+            <h2 className="text-sm font-semibold mb-3">チャンネルを選択</h2>
+            <input
+              type="text"
+              placeholder="チャンネルを検索..."
+              value={channelSearch}
+              onChange={(e) => setChannelSearch(e.target.value)}
+              className="w-full border border-neutral-200 rounded-lg px-4 py-2 text-sm mb-3 outline-none focus:border-neutral-400"
+            />
+            {channels.length === 0 ? (
+              <p className="text-sm text-neutral-400 text-center py-8">チャンネルが取得できませんでした</p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {filtered.map((ch) => (
+                  <button
+                    key={ch.id}
+                    onClick={() => setSelected(ch)}
+                    className={`w-full flex justify-between items-center px-4 py-3 rounded-xl border text-left text-sm transition-colors ${
+                      selected?.id === ch.id
+                        ? 'border-gray-900 bg-gray-50'
+                        : integration.channel_id === ch.id
+                        ? 'border-neutral-300 bg-neutral-50'
+                        : 'border-neutral-100 hover:border-neutral-300'
+                    }`}
+                  >
+                    <span className="font-medium">#{ch.name}</span>
+                    <span className="text-xs text-neutral-400">{ch.num_members}人</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {selected && (
+            <div className="mt-6 p-4 bg-neutral-50 rounded-xl border border-neutral-100 flex items-center justify-between">
+              <div>
+                <p className="text-xs text-neutral-400 mb-0.5">選択中</p>
+                <p className="text-sm font-medium text-black">#{selected.name}</p>
+              </div>
+              <button
+                onClick={confirmChannel}
+                disabled={saving}
+                className="bg-gray-900 text-white text-sm font-medium px-5 py-2 rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors"
+              >
+                {saving ? '保存中...' : '選択する'}
+              </button>
+            </div>
+          )}
+
+          <div className="mt-6 pt-6 border-t border-neutral-100 flex items-center justify-between">
+            <a
+              href={`/api/auth/slack/start?repository_id=${id}`}
+              className="text-xs text-neutral-400 hover:text-black transition-colors"
+            >
+              別のワークスペースに変更する →
+            </a>
+            <button onClick={disconnect} className="text-xs text-red-400 hover:text-red-600 underline">
+              連携を解除する
+            </button>
+          </div>
+        </>
       )}
     </div>
   )

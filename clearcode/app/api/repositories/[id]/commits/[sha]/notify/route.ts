@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getSession } from '@/lib/auth'
 import { sendCommitNotification } from '@/lib/services/notification-service'
+import { github } from '@/lib/github'
+import { decrypt } from '@/lib/crypto'
 
 function supabase() {
   return createClient(
@@ -11,7 +13,7 @@ function supabase() {
 }
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string; sha: string }> }
 ) {
   const session = await getSession()
@@ -21,9 +23,26 @@ export async function POST(
 
   const { id, sha } = await params
 
+  // before/after スクリーンショット（base64 data URL）をボディから取得
+  let beforeImage: Buffer | undefined
+  let afterImage: Buffer | undefined
+  try {
+    const body = await req.json()
+    if (typeof body.beforeImage === 'string') {
+      const base64 = body.beforeImage.split(',').pop() ?? body.beforeImage
+      beforeImage = Buffer.from(base64, 'base64')
+    }
+    if (typeof body.afterImage === 'string') {
+      const base64 = body.afterImage.split(',').pop() ?? body.afterImage
+      afterImage = Buffer.from(base64, 'base64')
+    }
+  } catch {
+    // ボディなしの呼び出しも許容
+  }
+
   const { data: repo } = await supabase()
     .from('repositories')
-    .select('name')
+    .select('name, owner')
     .eq('id', id)
     .eq('user_id', session.user_id)
     .single()
@@ -57,6 +76,24 @@ export async function POST(
     )
   }
 
+  // GitHub diff 取得
+  let diff: string | undefined
+  const { data: ghIntegration } = await supabase()
+    .from('github_integrations')
+    .select('access_token_encrypted')
+    .eq('user_id', session.user_id)
+    .single()
+
+  if (ghIntegration?.access_token_encrypted) {
+    try {
+      const ghToken = await decrypt(ghIntegration.access_token_encrypted)
+      const rawDiff = await github.getCommitDiff(ghToken, repo.owner, repo.name, sha)
+      diff = rawDiff || undefined
+    } catch {
+      // diff は任意なので失敗しても続行
+    }
+  }
+
   const summaries = Array.isArray(commit.commit_summaries)
     ? commit.commit_summaries
     : commit.commit_summaries ? [commit.commit_summaries] : []
@@ -71,6 +108,9 @@ export async function POST(
     simplifiedMessage: summary?.simplified_message ?? commit.message,
     codeExplanation: summary?.code_explanation ?? '',
     commitUrl: commit.html_url,
+    diff,
+    beforeImage,
+    afterImage,
   })
 
   return NextResponse.json({ ok: true, channel: slack.channel_name })
