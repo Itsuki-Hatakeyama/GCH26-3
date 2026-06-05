@@ -32,7 +32,7 @@ export default function DashboardLayout({
             </Link>
             <Link href="/dashboard/settings">
               <Button variant="ghost" className="text-sm text-neutral-500 hover:text-black dark:text-neutral-400 dark:hover:text-white">
-                設定
+                使用手順
               </Button>
             </Link>
             <Link href="/dashboard/profile">
