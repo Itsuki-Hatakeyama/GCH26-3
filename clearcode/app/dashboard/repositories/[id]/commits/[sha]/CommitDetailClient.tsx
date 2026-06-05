@@ -348,7 +348,6 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "summary", label: "ひとことで" },
-    { key: "visual", label: "画面の変化" },
     { key: "code", label: "コードの説明" },
     { key: "diff", label: `差分 (${diffFiles.length}ファイル)` },
   ];
