@@ -331,6 +331,17 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
     (s?.added_technologies?.length ?? 0) > 0 ||
     (s?.removed_technologies?.length ?? 0) > 0;
 
+  const codeExp = (() => {
+    if (!s?.code_explanation) return null;
+    try {
+      const parsed = JSON.parse(s.code_explanation) as { simple?: string; technical?: string; terms?: { term: string; description: string }[] };
+      if (parsed && typeof parsed === 'object' && ('simple' in parsed || 'technical' in parsed)) return parsed;
+      return { simple: s.code_explanation, technical: '', terms: [] };
+    } catch {
+      return { simple: s.code_explanation, technical: '', terms: [] };
+    }
+  })();
+
   const tabs: { key: Tab; label: string }[] = [
     { key: "summary", label: "ひとことで" },
     { key: "visual", label: "画面の変化" },
@@ -450,8 +461,32 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
             )}
 
             {activeTab === "code" && (
-              <div className="p-6 space-y-2">
-                <p className="text-sm text-gray-700 leading-relaxed">{s.code_explanation}</p>
+              <div className="p-6 space-y-5">
+                {codeExp?.simple && (
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-semibold text-blue-600">非エンジニア向け</p>
+                    <p className="text-sm text-gray-700 leading-relaxed">{codeExp.simple}</p>
+                  </div>
+                )}
+                {codeExp?.technical && (
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-semibold text-purple-600">エンジニア向け</p>
+                    <p className="text-sm text-gray-700 leading-relaxed font-mono">{codeExp.technical}</p>
+                  </div>
+                )}
+                {(codeExp?.terms?.length ?? 0) > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-neutral-500">専門用語</p>
+                    <div className="space-y-2">
+                      {codeExp!.terms!.map((t, i) => (
+                        <div key={i} className="flex gap-3 items-start bg-neutral-50 rounded-lg px-3 py-2">
+                          <span className="text-xs font-mono font-bold text-neutral-700 shrink-0 mt-0.5">{t.term}</span>
+                          <span className="text-xs text-neutral-500 leading-relaxed">{t.description}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
