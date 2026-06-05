@@ -25,9 +25,17 @@ export async function sendCommitNotification(params: NotifyParams): Promise<void
 
   const codeExpLines: string[] = []
   try {
-    const parsed = JSON.parse(params.codeExplanation) as { simple?: string; technical?: string }
+    const parsed = JSON.parse(params.codeExplanation) as {
+      simple?: string
+      technical?: string
+      terms?: { term: string; description: string }[]
+    }
     if (parsed.simple)    codeExpLines.push(`🙋 *非エンジニア向け*\n${parsed.simple}`)
     if (parsed.technical) codeExpLines.push(`🛠 *エンジニア向け*\n${parsed.technical}`)
+    if (parsed.terms && parsed.terms.length > 0) {
+      const termLines = parsed.terms.map((t) => `• *${t.term}*: ${t.description}`).join('\n')
+      codeExpLines.push(`📖 *専門用語*\n${termLines}`)
+    }
   } catch {
     if (params.codeExplanation) codeExpLines.push(params.codeExplanation)
   }
