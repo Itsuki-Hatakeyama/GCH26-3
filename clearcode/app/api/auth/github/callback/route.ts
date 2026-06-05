@@ -11,6 +11,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/`);
   }
 
+  const githubError = request.nextUrl.searchParams.get("error")
+  if (githubError) {
+    return NextResponse.redirect(
+      `${origin}/dashboard/connect-github?error=${encodeURIComponent(githubError)}`
+    );
+  }
+
   const code = request.nextUrl.searchParams.get("code");
 
   if (!code) {
