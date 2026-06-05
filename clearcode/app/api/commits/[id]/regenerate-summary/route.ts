@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSession } from "@/lib/auth";
 import { generateSummary } from "@/lib/services/summary-service";
+import { getUserAIConfig } from "@/lib/services/ai-config";
 
 function supabase() {
   return createClient(
@@ -39,9 +40,8 @@ export async function POST(
     );
   }
 
-  // diff は crypto.ts / github.ts 実装後に追加予定（担当: D）
-  // 現時点はコミットメッセージのみで生成
-  const result = await generateSummary(commit.message, "");
+  const { provider, apiKey } = await getUserAIConfig(session.user_id)
+  const result = await generateSummary(commit.message, "", provider, apiKey);
   console.log('[regenerate] generateSummary result:', JSON.stringify(result))
 
   if (!result) {
@@ -53,8 +53,8 @@ export async function POST(
 
   if ("error" in result) {
     const messages: Record<string, string> = {
-      QUOTA_EXCEEDED: "Geminiの1日の利用上限に達しました。明日再度お試しください",
-      AUTH_ERROR: "Gemini APIキーが無効です。.env.local の GEMINI_API_KEY を確認してください",
+      QUOTA_EXCEEDED: "APIの利用上限に達しました。しばらく待つか、プロフィールページでAPIキーを確認してください",
+      AUTH_ERROR: "APIキーが無効です。プロフィールページで正しいキーを設定してください",
       UNKNOWN: "要約の生成に失敗しました",
     };
     return NextResponse.json(
