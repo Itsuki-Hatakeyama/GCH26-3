@@ -1,4 +1,5 @@
 import SlackSetupGuide from '@/components/SlackSetupGuide'
+import GroqKeySettings from '@/components/GroqKeySettings'
 
 export default function SettingsPage() {
   return (
@@ -7,6 +8,23 @@ export default function SettingsPage() {
         <h1 className="text-xl font-semibold text-gray-900">設定</h1>
         <p className="text-sm text-gray-500 mt-1">アカウントや連携の設定を管理します</p>
       </div>
+
+      {/* AI設定 */}
+      <section>
+        <h2 className="text-base font-semibold text-gray-900 mb-4">AI設定</h2>
+        <div className="border border-gray-100 rounded-xl overflow-hidden">
+          <div className="bg-neutral-50 px-5 py-3 flex items-center gap-3 border-b border-gray-100">
+            <span className="text-sm font-semibold text-gray-800">Groq API キー</span>
+          </div>
+          <div className="px-5 py-5 space-y-3">
+            <p className="text-sm text-gray-500 leading-relaxed">
+              個人のGroq APIキーを設定すると、要約生成のレート制限があなた専用になります。
+              設定しない場合はアプリのデフォルトキーを全ユーザーで共有します。
+            </p>
+            <GroqKeySettings />
+          </div>
+        </div>
+      </section>
 
       {/* 使用方法 */}
       <section>

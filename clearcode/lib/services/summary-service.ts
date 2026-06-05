@@ -96,10 +96,11 @@ function buildUserPrompt(commitMessage: string, diff: string): string {
 ${compressDiff(diff) || '(差分なし)'}`
 }
 
-async function generate(userPrompt: string, retries = 2): Promise<string> {
+async function generate(userPrompt: string, retries = 2, apiKey?: string): Promise<string> {
+  const client = apiKey ? new Groq({ apiKey }) : groq
   for (let i = 0; i < retries; i++) {
     try {
-      const result = await groq.chat.completions.create({
+      const result = await client.chat.completions.create({
         model: MODEL,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
@@ -139,10 +140,11 @@ export type SummaryError = 'QUOTA_EXCEEDED' | 'AUTH_ERROR' | 'UNKNOWN'
 
 export async function generateSummary(
   commitMessage: string,
-  diff: string
+  diff: string,
+  userApiKey?: string
 ): Promise<CommitSummary | { error: SummaryError } | null> {
   try {
-    const raw = await generate(buildUserPrompt(commitMessage, diff))
+    const raw = await generate(buildUserPrompt(commitMessage, diff), 2, userApiKey)
     const json = JSON.parse(raw)
 
     const terms = Array.isArray(json.technical_terms)
