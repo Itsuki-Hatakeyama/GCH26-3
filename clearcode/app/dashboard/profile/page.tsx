@@ -9,11 +9,24 @@ import { Moon, Sun } from 'lucide-react'
 type SlackMethod = 'oauth' | 'bottoken'
 
 export default function ProfilePage() {
-  const [user, setUser] = useState<Pick<User, 'id' | 'email' | 'name' | 'created_at'> | null>(null)
+  const [user, setUser] = useState<Pick<User, 'id' | 'email' | 'name' | 'created_at'> & {
+    has_slack_bot_token?: boolean
+    slack_client_id?: string | null
+    has_slack_client_secret?: boolean
+  } | null>(null)
   const [loading, setLoading] = useState(true)
   const [slackMethod, setSlackMethod] = useState<SlackMethod>('oauth')
   const [pendingMethod, setPendingMethod] = useState<SlackMethod>('oauth')
   const [saved, setSaved] = useState(false)
+  const [slackToken, setSlackToken] = useState('')
+  const [slackTokenSaving, setSlackTokenSaving] = useState(false)
+  const [slackTokenSaved, setSlackTokenSaved] = useState(false)
+  const [slackTokenError, setSlackTokenError] = useState<string | null>(null)
+  const [oauthClientId, setOauthClientId] = useState('')
+  const [oauthClientSecret, setOauthClientSecret] = useState('')
+  const [oauthSaving, setOauthSaving] = useState(false)
+  const [oauthSaved, setOauthSaved] = useState(false)
+  const [oauthError, setOauthError] = useState<string | null>(null)
   const { theme, toggle } = useTheme()
 
   useEffect(() => {
@@ -28,6 +41,65 @@ export default function ProfilePage() {
       .then((d) => { if (d.user) setUser(d.user) })
       .finally(() => setLoading(false))
   }, [])
+
+  const saveSlackToken = async () => {
+    setSlackTokenSaving(true)
+    setSlackTokenError(null)
+    try {
+      const res = await fetch('/api/user/slack-token', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: slackToken }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setSlackTokenError(data.error?.message ?? '保存に失敗しました')
+        return
+      }
+      setUser((u) => u ? { ...u, has_slack_bot_token: true } : u)
+      setSlackToken('')
+      setSlackTokenSaved(true)
+      setTimeout(() => setSlackTokenSaved(false), 2000)
+    } finally {
+      setSlackTokenSaving(false)
+    }
+  }
+
+  const deleteSlackToken = async () => {
+    if (!confirm('保存済みの Slack Bot Token を削除しますか？')) return
+    await fetch('/api/user/slack-token', { method: 'DELETE' })
+    setUser((u) => u ? { ...u, has_slack_bot_token: false } : u)
+  }
+
+  const saveOauthCredentials = async () => {
+    setOauthSaving(true)
+    setOauthError(null)
+    try {
+      const res = await fetch('/api/user/slack-oauth-credentials', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: oauthClientId, client_secret: oauthClientSecret }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setOauthError(data.error?.message ?? '保存に失敗しました')
+        return
+      }
+      setUser((u) => u ? { ...u, slack_client_id: oauthClientId, has_slack_client_secret: true } : u)
+      setOauthClientId('')
+      setOauthClientSecret('')
+      setOauthSaved(true)
+      setTimeout(() => setOauthSaved(false), 2000)
+    } finally {
+      setOauthSaving(false)
+    }
+  }
+
+  const deleteOauthCredentials = async () => {
+    if (!confirm('保存済みの OAuth 資格情報を削除しますか？')) return
+    await fetch('/api/user/slack-oauth-credentials', { method: 'DELETE' })
+    setUser((u) => u ? { ...u, slack_client_id: null, has_slack_client_secret: false } : u)
+  }
 
   const handleSave = () => {
     setSlackMethod(pendingMethod)
@@ -112,6 +184,150 @@ export default function ProfilePage() {
         </div>
       </section>
 
+      {/* Slack OAuth 資格情報 */}
+      <section>
+        <h2 className="text-sm font-semibold text-gray-700 mb-1">Slack OAuth 資格情報</h2>
+        <p className="text-xs text-gray-400 mb-3">
+          OAuth 方式で連携するときに使用する Client ID と Client Secret を設定します。
+        </p>
+        <div className="bg-white border border-gray-100 rounded-xl p-5 space-y-4">
+          {user?.slack_client_id && user?.has_slack_client_secret && (
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+              <div>
+                <p className="text-sm font-medium text-gray-800">OAuth 資格情報 設定済み</p>
+                <p className="text-xs text-gray-400 mt-0.5 font-mono">{user.slack_client_id}</p>
+              </div>
+              <button
+                onClick={deleteOauthCredentials}
+                className="text-xs text-red-400 hover:text-red-600 underline"
+              >
+                削除する
+              </button>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Client ID</label>
+              <input
+                type="text"
+                placeholder="1234567890.1234567890123"
+                value={oauthClientId}
+                onChange={(e) => { setOauthClientId(e.target.value); setOauthError(null) }}
+                className="w-full border border-neutral-200 rounded-lg px-4 py-2 text-sm outline-none focus:border-neutral-400 font-mono"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Client Secret</label>
+              <input
+                type="password"
+                placeholder="••••••••••••••••••••••••••••••••"
+                value={oauthClientSecret}
+                onChange={(e) => { setOauthClientSecret(e.target.value); setOauthError(null) }}
+                className="w-full border border-neutral-200 rounded-lg px-4 py-2 text-sm outline-none focus:border-neutral-400 font-mono"
+              />
+            </div>
+          </div>
+
+          {oauthError && <p className="text-xs text-red-500">{oauthError}</p>}
+
+          <div className="flex items-center justify-between pt-1">
+            <p className="text-xs text-gray-400">
+              <a
+                href="https://api.slack.com/apps"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-500 hover:underline"
+              >
+                api.slack.com/apps
+              </a>{' '}
+              でアプリを作成して取得できます
+            </p>
+            <div className="flex items-center gap-3">
+              {oauthSaved && <span className="text-xs text-gray-400">保存しました</span>}
+              <button
+                onClick={saveOauthCredentials}
+                disabled={oauthSaving || !oauthClientId || !oauthClientSecret}
+                className="bg-gray-900 text-white text-sm font-medium px-5 py-2 rounded-lg hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                {oauthSaving ? '保存中...' : user?.slack_client_id ? '更新する' : '保存する'}
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-500 space-y-1">
+            <p className="font-medium text-gray-600">Slack アプリの設定で必要な項目</p>
+            <p>• OAuth & Permissions → Redirect URLs に以下を追加：</p>
+            <p className="font-mono bg-white border border-gray-200 rounded px-2 py-1 break-all">
+              {typeof window !== 'undefined' ? window.location.origin : ''}/api/auth/slack/callback
+            </p>
+            <p>• Bot Token Scopes: <code className="bg-white border border-gray-200 rounded px-1">chat:write</code> <code className="bg-white border border-gray-200 rounded px-1">channels:read</code> <code className="bg-white border border-gray-200 rounded px-1">files:write</code></p>
+          </div>
+        </div>
+      </section>
+
+      {/* Slack Bot Token */}
+      <section>
+        <h2 className="text-sm font-semibold text-gray-700 mb-1">Slack Bot Token</h2>
+        <p className="text-xs text-gray-400 mb-3">
+          個人で作成した Slack アプリの Bot Token を設定します。Bot Token 方式で Slack 連携するときに使用されます。
+        </p>
+        <div className="bg-white border border-gray-100 rounded-xl p-5 space-y-4">
+          {user?.has_slack_bot_token ? (
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-800">Bot Token 設定済み</p>
+                <p className="text-xs text-gray-400 mt-0.5">xoxb-••••••••••••</p>
+              </div>
+              <button
+                onClick={deleteSlackToken}
+                className="text-xs text-red-400 hover:text-red-600 underline"
+              >
+                削除する
+              </button>
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400">Bot Token が未設定です</p>
+          )}
+
+          <div className="space-y-2">
+            <input
+              type="password"
+              placeholder="xoxb-xxxxxxxxxxxx-xxxxxxxxxxxx-xxxxxxxxxxxxxxxx"
+              value={slackToken}
+              onChange={(e) => { setSlackToken(e.target.value); setSlackTokenError(null) }}
+              className="w-full border border-neutral-200 rounded-lg px-4 py-2 text-sm outline-none focus:border-neutral-400 font-mono"
+            />
+            {slackTokenError && (
+              <p className="text-xs text-red-500">{slackTokenError}</p>
+            )}
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-gray-400">
+                <a
+                  href="https://api.slack.com/apps"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-500 hover:underline"
+                >
+                  api.slack.com/apps
+                </a>{' '}
+                で Bot Token を取得できます
+              </p>
+              <div className="flex items-center gap-3">
+                {slackTokenSaved && <span className="text-xs text-gray-400">保存しました</span>}
+                <button
+                  onClick={saveSlackToken}
+                  disabled={slackTokenSaving || !slackToken}
+                  className="bg-gray-900 text-white text-sm font-medium px-5 py-2 rounded-lg hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  {slackTokenSaving ? '保存中...' : user?.has_slack_bot_token ? '更新する' : '保存する'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Slack連携方式 */}
       <section>
         <h2 className="text-sm font-semibold text-gray-700 mb-1">Slack連携方式</h2>
@@ -155,7 +371,7 @@ export default function ProfilePage() {
             <div>
               <p className="text-sm font-medium text-gray-800">Bot Token連携</p>
               <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">
-                環境変数に設定した SLACK_BOT_TOKEN を使って直接連携します。認可画面が不要でシンプルです。
+                上で設定した Slack Bot Token を使って直接連携します。認可画面が不要でシンプルです。
               </p>
               <span className="inline-block mt-1.5 text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded">
                 1ワークスペース固定
@@ -166,9 +382,9 @@ export default function ProfilePage() {
 
         {/* 変更ボタン */}
         <div className="flex items-center justify-between mt-3">
-          {pendingMethod === 'bottoken' && (
-            <p className="text-xs text-gray-400 leading-relaxed">
-              ⚠️ <code className="bg-gray-100 px-1 rounded">SLACK_BOT_TOKEN</code> が環境変数に必要です
+          {pendingMethod === 'bottoken' && !user?.has_slack_bot_token && (
+            <p className="text-xs text-orange-400 leading-relaxed">
+              ⚠️ 上の「Slack Bot Token」セクションでトークンを設定してください
             </p>
           )}
           <div className="flex items-center gap-3 ml-auto">

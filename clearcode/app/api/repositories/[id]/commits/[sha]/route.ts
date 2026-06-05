@@ -60,8 +60,12 @@ export async function GET(
 
   let diff = ''
   if (integration) {
-    const accessToken = await decrypt(integration.access_token_encrypted)
-    diff = await github.getCommitDiff(accessToken, repo.owner, repo.name, sha)
+    try {
+      const accessToken = await decrypt(integration.access_token_encrypted)
+      diff = await github.getCommitDiff(accessToken, repo.owner, repo.name, sha)
+    } catch (err) {
+      console.error('[diff] decrypt/fetch failed:', err)
+    }
   }
 
   return NextResponse.json({ commit, diff, repo: { name: repo.name, full_name: repo.full_name } })

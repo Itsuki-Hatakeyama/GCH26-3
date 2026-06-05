@@ -108,8 +108,53 @@ export default function SettingsPage() {
         <InfoBox>
           <Row label="対象" value="エンジニア" />
           <Row label="ページ" value="ダッシュボード → リポジトリ詳細 → Slack連携" />
-          <Row label="必要なもの" value="Slack Bot Token または OAuth 連携" />
+          <Row label="連携方式" value="Bot Token 方式 または OAuth 方式" />
         </InfoBox>
+
+        <div className="space-y-3">
+          {/* Bot Token */}
+          <div className="rounded-xl border border-gray-100 dark:border-neutral-800 overflow-hidden">
+            <div className="bg-neutral-50 dark:bg-neutral-800/50 px-4 py-2.5 border-b border-gray-100 dark:border-neutral-800">
+              <p className="text-xs font-semibold text-gray-600 dark:text-neutral-300">Bot Token 方式（1ワークスペース向け）</p>
+            </div>
+            <ul className="px-4 py-3 space-y-1.5">
+              {[
+                "プロフィール画面で「Slack Bot Token」を入力して保存",
+                "プロフィール画面で連携方式を「Bot Token 連携」に変更",
+                "リポジトリ詳細 → Slack連携 でチャンネルを選択",
+              ].map((item, i) => (
+                <li key={i} className="text-sm text-gray-500 dark:text-neutral-400 flex gap-2">
+                  <span className="shrink-0 w-4 h-4 rounded-full bg-gray-100 dark:bg-neutral-800 text-gray-500 dark:text-neutral-400 text-xs font-semibold flex items-center justify-center">{i + 1}</span>
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* OAuth */}
+          <div className="rounded-xl border border-gray-100 dark:border-neutral-800 overflow-hidden">
+            <div className="bg-neutral-50 dark:bg-neutral-800/50 px-4 py-2.5 border-b border-gray-100 dark:border-neutral-800">
+              <p className="text-xs font-semibold text-gray-600 dark:text-neutral-300">OAuth 方式（複数ワークスペース向け）</p>
+            </div>
+            <ul className="px-4 py-3 space-y-1.5">
+              {[
+                "プロフィール画面で「Slack OAuth 資格情報」に Client ID・Client Secret を入力して保存",
+                "プロフィール画面で連携方式を「OAuth 連携」に変更",
+                "リポジトリ詳細 → Slack連携 で「Slackと連携する」をクリックしてワークスペースを認証",
+                "認証後にチャンネルを選択",
+              ].map((item, i) => (
+                <li key={i} className="text-sm text-gray-500 dark:text-neutral-400 flex gap-2">
+                  <span className="shrink-0 w-4 h-4 rounded-full bg-gray-100 dark:bg-neutral-800 text-gray-500 dark:text-neutral-400 text-xs font-semibold flex items-center justify-center">{i + 1}</span>
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        <Note>
+          管理者があらかじめ .env.local にデフォルトの Bot Token・OAuth 資格情報を設定している場合は、プロフィールへの入力を省略できます。個人で別のキーを使いたい場合のみプロフィールで上書きしてください。
+        </Note>
       </Step>
 
       {/* Step 6 */}
