@@ -1,6 +1,6 @@
 import { WebClient } from '@slack/web-api'
 import { decrypt } from '@/lib/crypto'
-import { generateDiffImage } from '@/lib/diff-image'
+import { generateDiffImages } from '@/lib/diff-image'
 
 interface NotifyParams {
   accessTokenEncrypted: string
@@ -22,12 +22,22 @@ export async function sendCommitNotification(params: NotifyParams): Promise<void
     : process.env.SLACK_BOT_TOKEN ?? ''
 
   const shortSha = params.commitSha.slice(0, 7)
+
+  const codeExpLines: string[] = []
+  try {
+    const parsed = JSON.parse(params.codeExplanation) as { simple?: string; technical?: string }
+    if (parsed.simple)    codeExpLines.push(`🙋 *非エンジニア向け*\n${parsed.simple}`)
+    if (parsed.technical) codeExpLines.push(`🛠 *エンジニア向け*\n${parsed.technical}`)
+  } catch {
+    if (params.codeExplanation) codeExpLines.push(params.codeExplanation)
+  }
+
   const text = [
     `📦 *${params.repoName}* に新しい変更が届きました`,
     '',
     `*${params.simplifiedMessage}*`,
     '',
-    params.codeExplanation,
+    ...codeExpLines,
     '',
     `👤 ${params.authorName}  |  コミット \`${shortSha}\``,
   ].join('\n')
@@ -40,8 +50,11 @@ export async function sendCommitNotification(params: NotifyParams): Promise<void
 
   if (params.diff) {
     try {
-      const diffBuffer = await generateDiffImage(params.diff, params.repoName)
-      fileUploads.push({ filename: 'diff.png', file: diffBuffer, title: `${params.repoName} - ${shortSha} コード差分` })
+      const diffImages = await generateDiffImages(params.diff)
+      for (const img of diffImages) {
+        const safeName = img.filename.replace(/[^a-zA-Z0-9._-]/g, '_')
+        fileUploads.push({ filename: `${safeName}.png`, file: img.buffer, title: img.filename })
+      }
     } catch (err) {
       console.error('diff image generation failed:', err)
     }
@@ -55,27 +68,24 @@ export async function sendCommitNotification(params: NotifyParams): Promise<void
   }
 
   if (fileUploads.length > 0) {
-    try {
-      if (fileUploads.length === 1) {
+    for (let i = 0; i < fileUploads.length; i++) {
+      const f = fileUploads[i]
+      try {
         await client.filesUploadV2({
           channel_id: params.channelId,
-          filename: fileUploads[0].filename,
-          file: fileUploads[0].file,
-          title: fileUploads[0].title,
-          initial_comment: text,
+          filename: f.filename,
+          file: f.file,
+          title: f.title,
+          initial_comment: i === 0 ? text : undefined,
         })
-      } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (client.filesUploadV2 as any)({
-          channel_id: params.channelId,
-          initial_comment: text,
-          file_uploads: fileUploads,
-        })
+      } catch (err) {
+        console.error(`file upload failed (${f.filename}):`, err)
+        if (i === 0) {
+          await client.chat.postMessage({ channel: params.channelId, text })
+        }
       }
-      return
-    } catch (err) {
-      console.error('file upload failed, falling back to text:', err)
     }
+    return
   }
 
   await client.chat.postMessage({ channel: params.channelId, text })

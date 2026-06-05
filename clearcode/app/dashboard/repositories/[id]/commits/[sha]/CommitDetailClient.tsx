@@ -225,6 +225,7 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
   const [regenerated, setRegenerated] = useState(false);
   const [notifying, setNotifying] = useState(false);
   const [notifyResult, setNotifyResult] = useState<string | null>(null);
+  const [rawDiff, setRawDiff] = useState<string>("");
 
   const fetchCommit = useCallback(async () => {
     const [commitRes, diffRes] = await Promise.all([
@@ -236,6 +237,7 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
     setCommit(commitData.commit);
     if (diffRes.ok) {
       const diffData = await diffRes.json();
+      setRawDiff(diffData.diff ?? "");
       setDiffFiles(parseDiff(diffData.diff ?? ""));
     }
   }, [repositoryId, sha]);
@@ -281,7 +283,9 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
       const res = await fetch(`/api/repositories/${repositoryId}/commits/${sha}/notify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({
+          diffText: rawDiff || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
