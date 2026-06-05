@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { User } from '@/types/database'
 import AiProviderSettings from '@/components/AiProviderSettings'
+import { useTheme } from '@/components/ThemeProvider'
+import { Moon, Sun } from 'lucide-react'
 
 type SlackMethod = 'oauth' | 'bottoken'
 
@@ -12,6 +14,7 @@ export default function ProfilePage() {
   const [slackMethod, setSlackMethod] = useState<SlackMethod>('oauth')
   const [pendingMethod, setPendingMethod] = useState<SlackMethod>('oauth')
   const [saved, setSaved] = useState(false)
+  const { theme, toggle } = useTheme()
 
   useEffect(() => {
     const stored = localStorage.getItem('slack_method') as SlackMethod | null
@@ -41,6 +44,38 @@ export default function ProfilePage() {
         <h1 className="text-xl font-semibold text-gray-900">プロフィール</h1>
         <p className="text-sm text-gray-500 mt-1">アカウント情報と連携設定を確認できます</p>
       </div>
+
+      {/* 表示モード */}
+      <section>
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-neutral-300 mb-3">表示モード</h2>
+        <div className="bg-white dark:bg-neutral-900 border border-gray-100 dark:border-neutral-800 rounded-xl p-5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {theme === 'dark' ? (
+              <Moon className="w-4 h-4 text-neutral-400" />
+            ) : (
+              <Sun className="w-4 h-4 text-neutral-400" />
+            )}
+            <div>
+              <p className="text-sm font-medium text-gray-800 dark:text-neutral-200">
+                {theme === 'dark' ? 'ダークモード' : 'ライトモード'}
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">画面の明暗を切り替えます</p>
+            </div>
+          </div>
+          <button
+            onClick={toggle}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+              theme === 'dark' ? 'bg-neutral-700' : 'bg-neutral-200'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                theme === 'dark' ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
+      </section>
 
       {/* ユーザー情報 */}
       <section>
