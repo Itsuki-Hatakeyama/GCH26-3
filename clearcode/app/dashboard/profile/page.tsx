@@ -154,6 +154,32 @@ export default function ProfilePage() {
         <p className="text-sm text-gray-500 mt-1">アカウント情報と連携設定を確認できます</p>
       </div>
 
+      {/* ユーザー情報 */}
+      <section>
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-neutral-300 mb-3">ユーザー情報</h2>
+        <div className="bg-white dark:bg-neutral-900 border border-gray-100 dark:border-neutral-800 rounded-xl overflow-hidden">
+          {[
+            { label: '名前', value: user?.name ?? '—' },
+            { label: 'メールアドレス', value: user?.email ?? '—' },
+            { label: 'ユーザーID', value: user?.id ?? '—' },
+            {
+              label: '登録日',
+              value: user?.created_at
+                ? new Date(user.created_at).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })
+                : '—',
+            },
+          ].map(({ label, value }, i, arr) => (
+            <div
+              key={label}
+              className={`flex items-start px-5 py-4 gap-4 ${i < arr.length - 1 ? 'border-b border-gray-100 dark:border-neutral-800' : ''}`}
+            >
+              <span className="text-xs text-gray-400 dark:text-neutral-500 w-28 pt-0.5 shrink-0">{label}</span>
+              <span className="text-sm text-gray-800 dark:text-neutral-200 font-mono break-all">{value}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* 表示モード */}
       <section>
         <h2 className="text-sm font-semibold text-gray-700 dark:text-neutral-300 mb-3">表示モード</h2>
@@ -186,31 +212,6 @@ export default function ProfilePage() {
         </div>
       </section>
 
-      {/* ユーザー情報 */}
-      <section>
-        <h2 className="text-sm font-semibold text-gray-700 mb-3">ユーザー情報</h2>
-        <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-          {[
-            { label: '名前', value: user?.name ?? '—' },
-            { label: 'メールアドレス', value: user?.email ?? '—' },
-            { label: 'ユーザーID', value: user?.id ?? '—' },
-            {
-              label: '登録日',
-              value: user?.created_at
-                ? new Date(user.created_at).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })
-                : '—',
-            },
-          ].map(({ label, value }, i, arr) => (
-            <div
-              key={label}
-              className={`flex items-start px-5 py-4 gap-4 ${i < arr.length - 1 ? 'border-b border-gray-100' : ''}`}
-            >
-              <span className="text-xs text-gray-400 w-28 pt-0.5 shrink-0">{label}</span>
-              <span className="text-sm text-gray-800 font-mono break-all">{value}</span>
-            </div>
-          ))}
-        </div>
-      </section>
 
       {/* GitHub OAuth 資格情報 */}
       <section>
