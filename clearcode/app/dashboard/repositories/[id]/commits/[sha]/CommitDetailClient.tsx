@@ -400,6 +400,39 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
         )}
       </div>
 
+      {/* アクション */}
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          variant="outline"
+          className="rounded-full gap-2"
+          onClick={handleRegenerate}
+          disabled={regenerating}
+        >
+          <RefreshCw className={`w-4 h-4 ${regenerating ? "animate-spin" : ""}`} />
+          {regenerating ? "生成中..." : regenerated ? "再生成しました" : "要約を再生成"}
+        </Button>
+
+        <Button
+          variant="outline"
+          className="rounded-full gap-2"
+          onClick={handleNotifySlack}
+          disabled={notifying}
+        >
+          <Send className="w-4 h-4" />
+          {notifying ? "送信中..." : "Slackに送信"}
+        </Button>
+
+        {notifyResult && (
+          <span className={`text-xs px-3 py-1 rounded-full ${
+            notifyResult.includes("送信しました")
+              ? "bg-green-100 text-green-700"
+              : "bg-red-100 text-red-700"
+          }`}>
+            {notifyResult}
+          </span>
+        )}
+      </div>
+
       {/* カテゴリバッジ */}
       {(s?.change_categories?.length ?? 0) > 0 && (
         <div className="flex flex-wrap gap-1.5">
@@ -573,39 +606,6 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
           <pre className="text-xs text-gray-600 bg-gray-50 rounded-lg px-4 py-3 whitespace-pre-wrap font-mono">
             {commit.message}
           </pre>
-        )}
-      </div>
-
-      {/* アクション */}
-      <div className="flex flex-wrap items-center gap-3">
-        <Button
-          variant="outline"
-          className="rounded-full gap-2"
-          onClick={handleRegenerate}
-          disabled={regenerating}
-        >
-          <RefreshCw className={`w-4 h-4 ${regenerating ? "animate-spin" : ""}`} />
-          {regenerating ? "生成中..." : regenerated ? "再生成しました" : "要約を再生成"}
-        </Button>
-
-        <Button
-          variant="outline"
-          className="rounded-full gap-2"
-          onClick={handleNotifySlack}
-          disabled={notifying}
-        >
-          <Send className="w-4 h-4" />
-          {notifying ? "送信中..." : "Slackに送信"}
-        </Button>
-
-        {notifyResult && (
-          <span className={`text-xs px-3 py-1 rounded-full ${
-            notifyResult.includes("送信しました")
-              ? "bg-green-100 text-green-700"
-              : "bg-red-100 text-red-700"
-          }`}>
-            {notifyResult}
-          </span>
         )}
       </div>
 
