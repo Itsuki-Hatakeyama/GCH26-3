@@ -4,20 +4,18 @@ import { encrypt } from "@/lib/crypto";
 import { supabaseAdmin } from "@/lib/supabase";
 
 export async function GET(request: NextRequest) {
+  const origin = request.nextUrl.origin
   const session = await getSession();
-  console.log("session:", session);
 
   if (!session) {
-    console.log("→ セッションなし、トップへリダイレクト");
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/`);
+    return NextResponse.redirect(`${origin}/`);
   }
 
   const code = request.nextUrl.searchParams.get("code");
-  console.log("code:", code);
 
   if (!code) {
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/connect-github?error=no_code`
+      `${origin}/dashboard/connect-github?error=no_code`
     );
   }
 
@@ -31,16 +29,14 @@ export async function GET(request: NextRequest) {
       client_id: process.env.GITHUB_CLIENT_ID!,
       client_secret: process.env.GITHUB_CLIENT_SECRET!,
       code,
-      redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/github/callback`,
     }),
   });
 
   const tokenData = await tokenRes.json();
-  console.log("tokenData:", tokenData);
 
   if (tokenData.error || !tokenData.access_token) {
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/connect-github?error=token_failed`
+      `${origin}/dashboard/connect-github?error=token_failed`
     );
   }
 
@@ -48,10 +44,8 @@ export async function GET(request: NextRequest) {
     headers: { Authorization: `Bearer ${tokenData.access_token}` },
   });
   const githubUser = await userRes.json();
-  console.log("githubUser:", githubUser.login);
 
   const encryptedToken = await encrypt(tokenData.access_token);
-
 
   const { error } = await supabaseAdmin.from("github_integrations").upsert({
     user_id: session.user_id,
@@ -61,15 +55,13 @@ export async function GET(request: NextRequest) {
     updated_at: new Date().toISOString(),
   }, { onConflict: "user_id" });
 
-  console.log("DB error:", error);
-
   if (error) {
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/connect-github?error=db_failed`
+      `${origin}/dashboard/connect-github?error=db_failed`
     );
   }
 
   return NextResponse.redirect(
-    `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/connect-github?github=connected`
+    `${origin}/dashboard/connect-github?github=connected`
   );
 }
