@@ -90,7 +90,7 @@ function SlackPageContent() {
 
       {!integration ? (
         /* Phase A: 未連携 */
-        <div className="bg-white rounded-xl border border-neutral-100 p-8 text-center">
+        <div className="bg-white rounded-xl border border-neutral-100 p-6 sm:p-8 text-center">
           {slackMethod === 'oauth' ? (
             <>
               <p className="text-sm text-neutral-600 mb-2">Slackワークスペースを連携する</p>

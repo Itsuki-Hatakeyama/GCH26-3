@@ -8,10 +8,10 @@ export default function SlackSetupGuide() {
   return (
     <div>
       {/* タブ切り替え */}
-      <div className="flex gap-2 mb-5">
+      <div className="flex flex-wrap gap-2 mb-5">
         <button
           onClick={() => setTab('manifest')}
-          className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
             tab === 'manifest'
               ? 'bg-gray-900 text-white'
               : 'bg-gray-100 text-gray-500 hover:text-gray-800'
@@ -21,7 +21,7 @@ export default function SlackSetupGuide() {
         </button>
         <button
           onClick={() => setTab('manual')}
-          className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
             tab === 'manual'
               ? 'bg-gray-900 text-white'
               : 'bg-gray-100 text-gray-500 hover:text-gray-800'
@@ -35,7 +35,7 @@ export default function SlackSetupGuide() {
         <ol className="space-y-6">
           <li className="flex gap-4">
             <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center">1</span>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 min-w-0">
               <p className="text-sm font-medium text-gray-800">Slack App 作成画面を開く</p>
               <ol className="text-sm text-gray-500 space-y-1 list-none">
                 <li>① <a href="https://api.slack.com/apps" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">api.slack.com/apps</a> を開く</li>
@@ -48,10 +48,11 @@ export default function SlackSetupGuide() {
 
           <li className="flex gap-4">
             <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center">2</span>
-            <div className="space-y-2 w-full">
+            <div className="space-y-2 w-full min-w-0">
               <p className="text-sm font-medium text-gray-800">マニフェストを貼り付ける</p>
               <p className="text-sm text-gray-500">「YAML」タブを選択し、以下をそのまま貼り付けてください。</p>
-              <div className="bg-gray-900 rounded-lg px-4 py-3 text-xs font-mono text-gray-300 leading-relaxed whitespace-pre">{`display_information:
+              <div className="overflow-x-auto rounded-lg">
+                <div className="bg-gray-900 px-4 py-3 text-xs font-mono text-gray-300 leading-relaxed whitespace-pre min-w-max">{`display_information:
   name: Clearcode
 features:
   bot_user:
@@ -70,23 +71,26 @@ settings:
   org_deploy_enabled: false
   socket_mode_enabled: false
   token_rotation_enabled: false`}</div>
+              </div>
               <p className="text-xs text-gray-400">貼り付け後「<strong className="text-gray-700">Next</strong>」→「<strong className="text-gray-700">Create</strong>」をクリック</p>
             </div>
           </li>
 
           <li className="flex gap-4">
             <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center">3</span>
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0 w-full">
               <p className="text-sm font-medium text-gray-800">Client ID / Client Secret を取得して環境変数に登録する</p>
               <ol className="text-sm text-gray-500 space-y-1 list-none">
                 <li>① 左サイドバーの「<strong className="text-gray-700">Basic Information</strong>」をクリック</li>
                 <li>②「<strong className="text-gray-700">App Credentials</strong>」で Client ID と Client Secret を確認</li>
                 <li>③ Vercel の <strong className="text-gray-700">Project → Settings → Environment Variables</strong> に追加</li>
               </ol>
-              <div className="mt-1 bg-gray-900 rounded-lg px-4 py-3 text-xs font-mono text-gray-300 leading-relaxed">
-                SLACK_CLIENT_ID=<span className="text-yellow-300">取得したClient ID</span><br />
-                SLACK_CLIENT_SECRET=<span className="text-yellow-300">取得したClient Secret</span><br />
-                SLACK_REDIRECT_URI=<span className="text-yellow-300">https://あなたのドメイン.vercel.app/api/auth/slack/callback</span>
+              <div className="overflow-x-auto rounded-lg mt-1">
+                <div className="bg-gray-900 px-4 py-3 text-xs font-mono text-gray-300 leading-relaxed whitespace-pre">
+                  {`SLACK_CLIENT_ID=`}<span className="text-yellow-300">取得したClient ID</span>{'\n'}
+                  {`SLACK_CLIENT_SECRET=`}<span className="text-yellow-300">取得したClient Secret</span>{'\n'}
+                  {`SLACK_REDIRECT_URI=`}<span className="text-yellow-300">https://あなたのドメイン.vercel.app/api/auth/slack/callback</span>
+                </div>
               </div>
             </div>
           </li>
@@ -108,7 +112,7 @@ settings:
         <ol className="space-y-6">
           <li className="flex gap-4">
             <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center">1</span>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 min-w-0">
               <p className="text-sm font-medium text-gray-800">Slack App を作成する</p>
               <ol className="text-sm text-gray-500 space-y-1 list-none">
                 <li>① <a href="https://api.slack.com/apps" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">api.slack.com/apps</a> を開く</li>
@@ -122,23 +126,23 @@ settings:
 
           <li className="flex gap-4">
             <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center">2</span>
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0 w-full">
               <p className="text-sm font-medium text-gray-800">Redirect URL を登録する</p>
               <ol className="text-sm text-gray-500 space-y-1 list-none">
                 <li>① 左サイドバーの「<strong className="text-gray-700">OAuth &amp; Permissions</strong>」をクリック</li>
                 <li>②「<strong className="text-gray-700">Redirect URLs</strong>」セクションまでスクロール</li>
                 <li>③「<strong className="text-gray-700">Add New Redirect URL</strong>」で以下を追加</li>
               </ol>
-              <div className="rounded-lg border border-gray-100 overflow-hidden text-xs mt-1">
-                <table className="w-full">
+              <div className="rounded-lg border border-gray-100 overflow-x-auto text-xs mt-1">
+                <table className="w-full min-w-[360px]">
                   <tbody>
                     <tr className="border-b border-gray-100">
-                      <td className="px-3 py-2 text-gray-500 bg-neutral-50 w-24">ローカル用</td>
-                      <td className="px-3 py-2 text-gray-800 font-mono">http://localhost:3001/api/auth/slack/callback</td>
+                      <td className="px-3 py-2 text-gray-500 bg-neutral-50 w-20 whitespace-nowrap">ローカル用</td>
+                      <td className="px-3 py-2 text-gray-800 font-mono break-all">http://localhost:3001/api/auth/slack/callback</td>
                     </tr>
                     <tr>
-                      <td className="px-3 py-2 text-gray-500 bg-neutral-50">本番用</td>
-                      <td className="px-3 py-2 text-gray-800 font-mono">https://あなたのドメイン.vercel.app/api/auth/slack/callback</td>
+                      <td className="px-3 py-2 text-gray-500 bg-neutral-50 whitespace-nowrap">本番用</td>
+                      <td className="px-3 py-2 text-gray-800 font-mono break-all">https://あなたのドメイン.vercel.app/api/auth/slack/callback</td>
                     </tr>
                   </tbody>
                 </table>
@@ -149,7 +153,7 @@ settings:
 
           <li className="flex gap-4">
             <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center">3</span>
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0 w-full">
               <p className="text-sm font-medium text-gray-800">Bot Token Scopes を設定する</p>
               <ol className="text-sm text-gray-500 space-y-1 list-none">
                 <li>① 同じページの「<strong className="text-gray-700">Scopes</strong>」セクションまでスクロール</li>
@@ -171,17 +175,19 @@ settings:
 
           <li className="flex gap-4">
             <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center">4</span>
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0 w-full">
               <p className="text-sm font-medium text-gray-800">Client ID / Client Secret を取得して環境変数に登録する</p>
               <ol className="text-sm text-gray-500 space-y-1 list-none">
                 <li>① 左サイドバーの「<strong className="text-gray-700">Basic Information</strong>」をクリック</li>
                 <li>②「<strong className="text-gray-700">App Credentials</strong>」で Client ID と Client Secret を確認</li>
                 <li>③ Vercel の <strong className="text-gray-700">Project → Settings → Environment Variables</strong> に追加</li>
               </ol>
-              <div className="mt-1 bg-gray-900 rounded-lg px-4 py-3 text-xs font-mono text-gray-300 leading-relaxed">
-                SLACK_CLIENT_ID=<span className="text-yellow-300">取得したClient ID</span><br />
-                SLACK_CLIENT_SECRET=<span className="text-yellow-300">取得したClient Secret</span><br />
-                SLACK_REDIRECT_URI=<span className="text-yellow-300">https://あなたのドメイン.vercel.app/api/auth/slack/callback</span>
+              <div className="overflow-x-auto rounded-lg mt-1">
+                <div className="bg-gray-900 px-4 py-3 text-xs font-mono text-gray-300 leading-relaxed whitespace-pre">
+                  {`SLACK_CLIENT_ID=`}<span className="text-yellow-300">取得したClient ID</span>{'\n'}
+                  {`SLACK_CLIENT_SECRET=`}<span className="text-yellow-300">取得したClient Secret</span>{'\n'}
+                  {`SLACK_REDIRECT_URI=`}<span className="text-yellow-300">https://あなたのドメイン.vercel.app/api/auth/slack/callback</span>
+                </div>
               </div>
             </div>
           </li>

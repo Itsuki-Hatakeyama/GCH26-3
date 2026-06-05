@@ -131,7 +131,7 @@ export default function CommitCard({ commit, isUnread = false, selectedBranch, d
   return (
     <div
       onClick={handleCardClick}
-      className={`rounded-xl border p-5 space-y-3 cursor-pointer hover:border-neutral-300 transition-colors ${
+      className={`rounded-xl border p-4 sm:p-5 space-y-3 cursor-pointer hover:border-neutral-300 transition-colors ${
         isUnread ? "bg-blue-50/40 border-blue-200" : "bg-white border-neutral-100"
       }`}
     >
