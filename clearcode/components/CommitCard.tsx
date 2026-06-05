@@ -264,9 +264,14 @@ export default function CommitCard({ commit, isUnread = false, selectedBranch, d
       </div>
 
       {/* コード変更説明 */}
-      {s?.code_explanation && (
-        <p className="text-sm text-gray-600 leading-relaxed">{s.code_explanation}</p>
-      )}
+      {s?.code_explanation && (() => {
+        let simple = s.code_explanation;
+        try {
+          const parsed = JSON.parse(s.code_explanation);
+          if (parsed?.simple) simple = parsed.simple;
+        } catch { /* plain text fallback */ }
+        return <p className="text-sm text-gray-600 leading-relaxed">{simple}</p>;
+      })()}
 
       {/* フロント変更 */}
       {s?.frontend_changes && (
