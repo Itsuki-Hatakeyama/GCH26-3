@@ -1,9 +1,11 @@
+import Link from 'next/link'
+
 export default function SupportPage() {
   return (
     <div className="min-h-screen bg-white">
       <header className="border-b border-gray-100">
         <div className="container mx-auto px-6 h-16 flex items-center">
-          <a href="/" className="text-xl font-semibold text-blue-600 tracking-tight">Clearcode</a>
+          <Link href="/" className="text-xl font-semibold text-blue-600 tracking-tight">Clearcode</Link>
         </div>
       </header>
       <main className="container mx-auto px-6 py-16 max-w-2xl">
