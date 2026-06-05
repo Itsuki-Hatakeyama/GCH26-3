@@ -31,17 +31,21 @@ export async function GET(request: NextRequest) {
   let clientId = process.env.GITHUB_CLIENT_ID!
   let clientSecret = process.env.GITHUB_CLIENT_SECRET!
 
-  const credResult = await query<{
-    github_client_id: string | null
-    github_client_secret_encrypted: string | null
-  }>(
-    'SELECT github_client_id, github_client_secret_encrypted FROM users WHERE id = $1',
-    [stateUserId]
-  )
-  const row = credResult.rows[0]
-  if (row?.github_client_id && row?.github_client_secret_encrypted) {
-    clientId = row.github_client_id
-    clientSecret = await decrypt(row.github_client_secret_encrypted)
+  try {
+    const credResult = await query<{
+      github_client_id: string | null
+      github_client_secret_encrypted: string | null
+    }>(
+      'SELECT github_client_id, github_client_secret_encrypted FROM users WHERE id = $1',
+      [stateUserId]
+    )
+    const row = credResult.rows[0]
+    if (row?.github_client_id && row?.github_client_secret_encrypted) {
+      clientId = row.github_client_id
+      clientSecret = await decrypt(row.github_client_secret_encrypted)
+    }
+  } catch {
+    // DB取得失敗時は環境変数を使用
   }
 
   const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
