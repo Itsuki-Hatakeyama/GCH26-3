@@ -76,6 +76,13 @@ export async function POST(
     return NextResponse.json({ error: { code: 'NOT_FOUND' } }, { status: 404 })
   }
 
+  // デバッグ: is_active に関わらず全レコードを確認
+  const { data: slackDebug } = await supabase()
+    .from('slack_integrations')
+    .select('repository_id, channel_id, channel_name, is_active, workspace_name')
+    .eq('repository_id', id)
+  console.log('[notify] slack_integrations for repo', id, ':', JSON.stringify(slackDebug))
+
   const { data: slack } = await supabase()
     .from('slack_integrations')
     .select('channel_id, channel_name, access_token_encrypted')

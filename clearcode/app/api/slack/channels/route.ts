@@ -32,6 +32,8 @@ export async function GET(req: NextRequest) {
     .eq('repository_id', repositoryId)
     .single()
 
+  console.log('[channels] integration:', integration ? 'found' : 'not found', 'token_len:', integration?.access_token_encrypted?.length)
+
   if (!integration) {
     return NextResponse.json({ error: { code: 'NOT_CONNECTED', message: 'Slack未連携です' } }, { status: 400 })
   }
@@ -41,10 +43,13 @@ export async function GET(req: NextRequest) {
   }
 
   const accessToken = await decrypt(integration.access_token_encrypted)
+  console.log('[channels] token prefix:', accessToken.slice(0, 10))
   const allChannels = await getChannels(accessToken)
+  console.log('[channels] total fetched:', allChannels.length)
   const channels = allChannels
     .filter((c: Record<string, unknown>) => !c.is_private && !c.is_archived)
     .map((c: Record<string, unknown>) => ({ id: c.id, name: c.name, num_members: c.num_members ?? 0 }))
+  console.log('[channels] after filter:', channels.length)
 
   return NextResponse.json({ channels })
 }

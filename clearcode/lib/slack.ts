@@ -15,15 +15,25 @@ export async function getAccessToken(code: string) {
 }
 
 export async function getChannels(accessToken: string) {
-  const response = await fetch('https://slack.com/api/conversations.list', {
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-  });
-  const data = await response.json();
-  if (!data.ok) throw new Error(`Slack API error: ${data.error}`);
-  return data.channels;
+  const allChannels: Record<string, unknown>[] = []
+  let cursor: string | undefined
+
+  do {
+    const url = new URL('https://slack.com/api/conversations.list')
+    url.searchParams.set('limit', '200')
+    if (cursor) url.searchParams.set('cursor', cursor)
+
+    const response = await fetch(url.toString(), {
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    })
+    const data = await response.json()
+    if (!data.ok) throw new Error(`Slack API error: ${data.error}`)
+
+    allChannels.push(...(data.channels ?? []))
+    cursor = data.response_metadata?.next_cursor || undefined
+  } while (cursor)
+
+  return allChannels
 }
 
 export async function postMessage(accessToken: string, channel: string, text: string) {

@@ -2,6 +2,27 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 
+async function checkAccess(id: string, userId: string): Promise<boolean> {
+  const { data: repo } = await supabaseAdmin
+    .from('repositories')
+    .select('user_id')
+    .eq('id', id)
+    .single()
+
+  if (!repo) return false
+  if (repo.user_id === userId) return true
+
+  const { data: membership } = await supabaseAdmin
+    .from('repository_members')
+    .select('id')
+    .eq('repository_id', id)
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .single()
+
+  return !!membership
+}
+
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession()
   if (!session) {
@@ -10,14 +31,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   const { id } = await params
 
-  const { data: repo } = await supabaseAdmin
-    .from('repositories')
-    .select('id')
-    .eq('id', id)
-    .eq('user_id', session.user_id)
-    .single()
-
-  if (!repo) {
+  if (!(await checkAccess(id, session.user_id))) {
     return NextResponse.json({ error: { code: 'NOT_FOUND' } }, { status: 404 })
   }
 
@@ -37,26 +51,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   const { id } = await params
-  const { channel_id, channel_name, method } = await req.json()
+  const body = await req.json()
+  const { channel_id, channel_name, method } = body
+  console.log('[slack PUT]', { id, channel_id, channel_name, method })
 
   if (!channel_id) {
     return NextResponse.json({ error: { code: 'INVALID_REQUEST', message: 'channel_idが必要です' } }, { status: 400 })
   }
 
-  // リポジトリの権限確認
-  const { data: repo } = await supabaseAdmin
-    .from('repositories')
-    .select('id')
-    .eq('id', id)
-    .eq('user_id', session.user_id)
-    .single()
-
-  if (!repo) {
+  if (!(await checkAccess(id, session.user_id))) {
     return NextResponse.json({ error: { code: 'NOT_FOUND', message: 'リポジトリが見つかりません' } }, { status: 404 })
   }
 
   if (method === 'bottoken') {
-    // Bot Tokenモード: 連携レコードがなければ新規作成、あれば更新
     const { error } = await supabaseAdmin
       .from('slack_integrations')
       .upsert(
@@ -75,7 +82,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: { code: 'DB_ERROR', message: '更新に失敗しました' } }, { status: 500 })
     }
   } else {
-    // OAuthモード: 既存レコードのチャンネルのみ更新
     const { error } = await supabaseAdmin
       .from('slack_integrations')
       .update({ channel_id, channel_name, is_active: true })
@@ -96,14 +102,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 
   const { id } = await params
 
-  const { data: repo } = await supabaseAdmin
-    .from('repositories')
-    .select('id')
-    .eq('id', id)
-    .eq('user_id', session.user_id)
-    .single()
-
-  if (!repo) {
+  if (!(await checkAccess(id, session.user_id))) {
     return NextResponse.json({ error: { code: 'NOT_FOUND', message: 'リポジトリが見つかりません' } }, { status: 404 })
   }
 
