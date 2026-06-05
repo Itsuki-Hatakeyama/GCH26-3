@@ -65,8 +65,7 @@ export interface CommitWithSummary {
   repository_id: string;
   changed_files: string[] | null;
   branch_names: string[] | null;
-  // Supabase は一対多で返すので配列（UNIQUE制約があっても）
-  commit_summaries: CommitSummaryData[];
+  commit_summaries: CommitSummaryData[] | CommitSummaryData | null;
 }
 
 interface CommitCardProps {
@@ -78,7 +77,11 @@ interface CommitCardProps {
 
 export default function CommitCard({ commit, isUnread = false, selectedBranch, defaultBranch }: CommitCardProps) {
   const [showOriginal, setShowOriginal] = useState(false);
-  const [summaryData, setSummaryData] = useState<CommitSummaryData | null>(commit.commit_summaries?.[0] ?? null);
+  const [summaryData, setSummaryData] = useState<CommitSummaryData | null>(
+    Array.isArray(commit.commit_summaries)
+      ? (commit.commit_summaries[0] ?? null)
+      : (commit.commit_summaries ?? null)
+  );
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const s = summaryData;

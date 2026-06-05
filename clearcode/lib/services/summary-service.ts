@@ -1,13 +1,12 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import Groq from 'groq-sdk'
 import type { ChangeCategory } from '@/lib/prompts/categorize-change'
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
-const MODEL = 'gemini-2.0-flash'
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+const MODEL = 'llama-3.3-70b-versatile'
 
 function compressDiff(diff: string): string {
   if (!diff || diff.length <= 1000) return diff
 
-  // +/- 行とファイル・位置情報だけ抽出（コンテキスト行を除外）
   const extracted = diff
     .split('\n')
     .filter((line) =>
@@ -19,8 +18,6 @@ function compressDiff(diff: string): string {
     .join('\n')
 
   if (extracted.length <= 2000) return extracted
-
-  // それでも長い場合は2000文字で切る
   return extracted.slice(0, 2000)
 }
 
@@ -40,37 +37,38 @@ ${diffSnippet || '(差分なし)'}
 {
   "simplified_message": "プログラミング知識がない人向けに1〜2文で何をしたか説明",
   "code_explanation": "どのファイルで何が変わり、ユーザーや機能にどう影響するか2〜4文で説明",
-  "quality_score": 0〜100の整数（何をしたか40点・なぜしたか30点・影響範囲30点で評価）,
+  "quality_score": 75,
   "quality_feedback": "50文字以内のフィードバック",
-  "categories": ["カテゴリ1"] // フロントエンド/バックエンド/インフラ/テスト/ドキュメント/設定/リファクタリング/バグ修正 から最大3つ
-}`
+  "categories": ["カテゴリ1"]
 }
 
-async function generate(prompt: string, retries = 3): Promise<string> {
-  const model = genAI.getGenerativeModel({ model: MODEL })
+categoriesはフロントエンド/バックエンド/インフラ/テスト/ドキュメント/設定/リファクタリング/バグ修正から最大3つ選んでください。`
+}
+
+async function generate(prompt: string, retries = 2): Promise<string> {
   for (let i = 0; i < retries; i++) {
     try {
-      const result = await model.generateContent(prompt)
-      return result.response.text().trim()
+      const result = await groq.chat.completions.create({
+        model: MODEL,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.3,
+      })
+      return result.choices[0].message.content?.trim() ?? ''
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
-      console.error('[Gemini raw error]', msg)
-      const is429 = msg.includes('429')
+      console.error('[Groq raw error]', msg)
 
-      if (is429 && (msg.includes('PerDay') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED'))) {
+      if (msg.includes('429') || msg.includes('rate_limit')) {
+        if (i < retries - 1) {
+          await new Promise((r) => setTimeout(r, 10_000))
+          continue
+        }
         throw new Error('QUOTA_EXCEEDED_DAILY')
-      }
-
-      if (is429 && i < retries - 1) {
-        const match = msg.match(/retry in (\d+)/)
-        const waitSec = match ? parseInt(match[1]) + 1 : 10
-        await new Promise((r) => setTimeout(r, waitSec * 1000))
-        continue
       }
       throw err
     }
   }
-  throw new Error('Gemini generate failed after retries')
+  throw new Error('Groq generate failed after retries')
 }
 
 export interface CommitSummary {
@@ -101,14 +99,14 @@ export async function generateSummary(
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
     if (msg === 'QUOTA_EXCEEDED_DAILY') {
-      console.warn('Gemini日次クォータ超過。要約をスキップします。')
+      console.warn('Groqレート制限。要約をスキップします。')
       return { error: 'QUOTA_EXCEEDED' }
     }
-    if (msg.includes('API_KEY_INVALID') || msg.includes('401') || msg.includes('403')) {
-      console.error('Gemini APIキーが無効です:', msg)
+    if (msg.includes('401') || msg.includes('invalid_api_key')) {
+      console.error('Groq APIキーが無効です:', msg)
       return { error: 'AUTH_ERROR' }
     }
-    console.error('Gemini要約生成エラー:', msg)
+    console.error('Groq要約生成エラー:', msg)
     return { error: 'UNKNOWN' }
   }
 }

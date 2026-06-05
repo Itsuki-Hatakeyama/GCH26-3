@@ -42,6 +42,7 @@ export async function POST(
   // diff は crypto.ts / github.ts 実装後に追加予定（担当: D）
   // 現時点はコミットメッセージのみで生成
   const result = await generateSummary(commit.message, "");
+  console.log('[regenerate] generateSummary result:', JSON.stringify(result))
 
   if (!result) {
     return NextResponse.json(
@@ -65,6 +66,8 @@ export async function POST(
   const { error: upsertError } = await supabase()
     .from("commit_summaries")
     .upsert({ commit_id: id, ...result }, { onConflict: "commit_id" });
+
+  console.log('[regenerate] upsert error:', upsertError)
 
   if (upsertError) {
     return NextResponse.json(
