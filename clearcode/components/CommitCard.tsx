@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronDown, ChevronUp, ExternalLink, GitBranch, GitMerge, Loader2, Sparkles, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -64,8 +65,7 @@ export interface CommitWithSummary {
   repository_id: string;
   changed_files: string[] | null;
   branch_names: string[] | null;
-  // Supabase は一対多で返すので配列（UNIQUE制約があっても）
-  commit_summaries: CommitSummaryData[];
+  commit_summaries: CommitSummaryData[] | CommitSummaryData | null;
 }
 
 interface CommitCardProps {
@@ -77,7 +77,11 @@ interface CommitCardProps {
 
 export default function CommitCard({ commit, isUnread = false, selectedBranch, defaultBranch }: CommitCardProps) {
   const [showOriginal, setShowOriginal] = useState(false);
-  const [summaryData, setSummaryData] = useState<CommitSummaryData | null>(commit.commit_summaries?.[0] ?? null);
+  const [summaryData, setSummaryData] = useState<CommitSummaryData | null>(
+    Array.isArray(commit.commit_summaries)
+      ? (commit.commit_summaries[0] ?? null)
+      : (commit.commit_summaries ?? null)
+  );
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const s = summaryData;
@@ -116,9 +120,18 @@ export default function CommitCard({ commit, isUnread = false, selectedBranch, d
     minute: "2-digit",
   }).format(new Date(commit.committed_at));
 
+  const router = useRouter();
+  const detailHref = `/dashboard/repositories/${commit.repository_id}/commits/${commit.sha}`;
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest("a, button")) return;
+    router.push(detailHref);
+  };
+
   return (
     <div
-      className={`rounded-xl border p-5 space-y-3 ${
+      onClick={handleCardClick}
+      className={`rounded-xl border p-5 space-y-3 cursor-pointer hover:border-neutral-300 transition-colors ${
         isUnread ? "bg-blue-50/40 border-blue-200" : "bg-white border-neutral-100"
       }`}
     >
@@ -286,9 +299,7 @@ export default function CommitCard({ commit, isUnread = false, selectedBranch, d
         {s?.message_quality_score != null && (
           <QualityScore score={s.message_quality_score} />
         )}
-        <Link
-          href={`/dashboard/repositories/${commit.repository_id}/commits/${commit.sha}`}
-        >
+        <Link href={detailHref}>
           <Button variant="outline" size="sm" className="rounded-full text-xs h-7 px-3">
             詳細を見る
           </Button>

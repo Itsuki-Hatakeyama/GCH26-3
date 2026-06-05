@@ -58,6 +58,7 @@ export async function GET(
         { status: 404 }
       );
     }
+    console.log('[commits GET sha] commit_summaries:', JSON.stringify(commit.commit_summaries))
     return NextResponse.json({ commit });
   }
 

@@ -313,7 +313,9 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
     );
   }
 
-  const s = commit.commit_summaries?.[0] ?? null;
+  const s = Array.isArray(commit.commit_summaries)
+    ? (commit.commit_summaries[0] ?? null)
+    : (commit.commit_summaries ?? null);
   const date = new Intl.DateTimeFormat("ja-JP", {
     year: "numeric",
     month: "long",
@@ -347,8 +349,8 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
 
   return (
     <div className="space-y-6">
-      {/* ナビゲーション */}
-      <div className="flex items-center justify-between">
+      {/* ナビゲーション（スクロール追従） */}
+      <div className="sticky top-0 z-10 -mx-4 px-4 py-2 bg-white/90 backdrop-blur-sm border-b border-neutral-100 flex items-center justify-between">
         <Link
           href={`/dashboard/repositories/${repositoryId}`}
           className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-black transition-colors bg-white border border-neutral-200 hover:border-neutral-400 rounded-lg px-3 py-1.5"

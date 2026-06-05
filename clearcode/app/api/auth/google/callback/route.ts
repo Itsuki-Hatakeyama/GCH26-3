@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { SignJWT } from "jose";
 import { createClient } from "@supabase/supabase-js";
 
@@ -94,9 +93,8 @@ export async function POST(req: NextRequest) {
       .setExpirationTime("30d")
       .sign(secret);
 
-    // HttpOnly CookieにセッションをセッT
-    const cookieStore = await cookies();
-    cookieStore.set("session", sessionToken, {
+    const response = NextResponse.json({ ok: true, isNewUser });
+    response.cookies.set("session", sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -104,7 +102,7 @@ export async function POST(req: NextRequest) {
       path: "/",
     });
 
-    return NextResponse.json({ ok: true, isNewUser });
+    return response;
   } catch (err) {
     console.error("OAuth callback error:", err);
     return NextResponse.json(
