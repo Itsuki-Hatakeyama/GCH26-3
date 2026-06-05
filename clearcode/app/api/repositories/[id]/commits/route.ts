@@ -25,12 +25,11 @@ export async function GET(
 
   const { id } = await params;
 
-  // 所有権確認 + last_viewed_at 取得
+  // オーナーまたはアクティブメンバーか確認
   const { data: repo, error: repoError } = await supabase()
     .from("repositories")
-    .select("id, last_viewed_at")
+    .select("id, user_id, last_viewed_at")
     .eq("id", id)
-    .eq("user_id", session.user_id)
     .single();
 
   if (repoError || !repo) {
@@ -38,6 +37,23 @@ export async function GET(
       { error: { code: "NOT_FOUND", message: "リポジトリが見つかりません" } },
       { status: 404 }
     );
+  }
+
+  if (repo.user_id !== session.user_id) {
+    const { data: membership } = await supabase()
+      .from("repository_members")
+      .select("id")
+      .eq("repository_id", id)
+      .eq("user_id", session.user_id)
+      .eq("status", "active")
+      .single();
+
+    if (!membership) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "リポジトリが見つかりません" } },
+        { status: 404 }
+      );
+    }
   }
 
   const sp = req.nextUrl.searchParams;

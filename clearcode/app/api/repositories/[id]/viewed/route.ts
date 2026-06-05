@@ -23,17 +23,18 @@ export async function PATCH(
 
   const { id } = await params;
 
-  const { error } = await supabase()
+  const { data: repo } = await supabase()
     .from("repositories")
-    .update({ last_viewed_at: new Date().toISOString() })
+    .select("user_id")
     .eq("id", id)
-    .eq("user_id", session.user_id);
+    .single();
 
-  if (error) {
-    return NextResponse.json(
-      { error: { code: "DB_ERROR", message: "更新に失敗しました" } },
-      { status: 500 }
-    );
+  // オーナーのみ last_viewed_at を更新（メンバーはスキップ）
+  if (repo?.user_id === session.user_id) {
+    await supabase()
+      .from("repositories")
+      .update({ last_viewed_at: new Date().toISOString() })
+      .eq("id", id);
   }
 
   return NextResponse.json({ ok: true });
