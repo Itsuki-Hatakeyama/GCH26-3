@@ -245,14 +245,48 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
   useEffect(() => {
     (async () => {
       try {
-        await fetchCommit();
+        const [commitRes, diffRes] = await Promise.all([
+          fetch(`/api/repositories/${repositoryId}/commits?sha=${sha}`),
+          fetch(`/api/repositories/${repositoryId}/commits/${sha}`),
+        ]);
+        if (!commitRes.ok) throw new Error("コミットが見つかりません");
+        const commitData = await commitRes.json();
+        const fetchedCommit: CommitDetail = commitData.commit;
+        setCommit(fetchedCommit);
+        if (diffRes.ok) {
+          const diffData = await diffRes.json();
+          setRawDiff(diffData.diff ?? "");
+          setDiffFiles(parseDiff(diffData.diff ?? ""));
+        }
+
+        // 要約がなければ自動生成
+        const summaries = Array.isArray(fetchedCommit.commit_summaries)
+          ? fetchedCommit.commit_summaries
+          : fetchedCommit.commit_summaries
+          ? [fetchedCommit.commit_summaries]
+          : [];
+        if (summaries.length === 0) {
+          setRegenerating(true);
+          try {
+            const res = await fetch(`/api/commits/${fetchedCommit.id}/regenerate-summary`, { method: "POST" });
+            if (res.ok) {
+              const genRes = await fetch(`/api/repositories/${repositoryId}/commits?sha=${sha}`);
+              if (genRes.ok) {
+                const genData = await genRes.json();
+                setCommit(genData.commit);
+              }
+            }
+          } finally {
+            setRegenerating(false);
+          }
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "エラーが発生しました");
       } finally {
         setLoading(false);
       }
     })();
-  }, [fetchCommit]);
+  }, [repositoryId, sha]);
 
   const handleCopySha = async () => {
     await navigator.clipboard.writeText(sha);
@@ -572,7 +606,14 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
         </div>
       ) : (
         <div className="bg-neutral-50 rounded-xl border border-neutral-100 p-8 text-center space-y-3">
-          <p className="text-sm text-neutral-400">要約がまだ生成されていません</p>
+          {regenerating ? (
+            <div className="flex flex-col items-center gap-3">
+              <RefreshCw className="w-5 h-5 text-neutral-400 animate-spin" />
+              <p className="text-sm text-neutral-400">要約を自動生成しています...</p>
+            </div>
+          ) : (
+            <p className="text-sm text-neutral-400">要約を生成できませんでした</p>
+          )}
           {diffFiles.length > 0 && (
             <div className="mt-4 text-left space-y-2">
               <p className="text-xs text-neutral-400 mb-2">差分のみ表示</p>

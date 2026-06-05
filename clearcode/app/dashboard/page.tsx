@@ -11,6 +11,7 @@ interface Repository {
   full_name: string
   description: string | null
   is_private: boolean
+  is_owner: boolean
   unread_count: number
   updated_at: string
   slack_integration?: { channel_name: string; is_active: boolean } | null
@@ -81,13 +82,15 @@ export default function DashboardPage() {
                         {repo.unread_count}
                       </span>
                     )}
-                    <button
-                      onClick={(e) => handleDelete(e, repo.id, repo.name)}
-                      disabled={deletingId === repo.id}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-red-50 text-neutral-300 hover:text-red-500"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {repo.is_owner && (
+                      <button
+                        onClick={(e) => handleDelete(e, repo.id, repo.name)}
+                        disabled={deletingId === repo.id}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-red-50 text-neutral-300 hover:text-red-500"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
                 <p className="text-xs text-neutral-400 mb-3 truncate">{repo.full_name}</p>

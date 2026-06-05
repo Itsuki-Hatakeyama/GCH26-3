@@ -72,9 +72,9 @@ export async function DELETE(
 
   const { id } = await params;
 
-  const { error } = await supabase()
+  const { error, count } = await supabase()
     .from("repositories")
-    .delete()
+    .delete({ count: "exact" })
     .eq("id", id)
     .eq("user_id", session.user_id);
 
@@ -82,6 +82,13 @@ export async function DELETE(
     return NextResponse.json(
       { error: { code: "DB_ERROR", message: "削除に失敗しました" } },
       { status: 500 }
+    );
+  }
+
+  if (!count || count === 0) {
+    return NextResponse.json(
+      { error: { code: "FORBIDDEN", message: "削除する権限がありません" } },
+      { status: 403 }
     );
   }
 
