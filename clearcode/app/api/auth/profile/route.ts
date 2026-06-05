@@ -14,8 +14,10 @@ export async function GET() {
     name: string
     created_at: string
     slack_bot_token_encrypted: string | null
+    slack_client_id: string | null
+    slack_client_secret_encrypted: string | null
   }>(
-    'SELECT id, email, name, created_at, slack_bot_token_encrypted FROM users WHERE id = $1',
+    'SELECT id, email, name, created_at, slack_bot_token_encrypted, slack_client_id, slack_client_secret_encrypted FROM users WHERE id = $1',
     [session.user_id]
   )
 
@@ -23,11 +25,13 @@ export async function GET() {
     return NextResponse.json({ error: { code: 'NOT_FOUND' } }, { status: 404 })
   }
 
-  const { slack_bot_token_encrypted, ...rest } = result.rows[0]
+  const { slack_bot_token_encrypted, slack_client_id, slack_client_secret_encrypted, ...rest } = result.rows[0]
   return NextResponse.json({
     user: {
       ...rest,
       has_slack_bot_token: !!slack_bot_token_encrypted,
+      slack_client_id: slack_client_id ?? null,
+      has_slack_client_secret: !!slack_client_secret_encrypted,
     },
   })
 }
