@@ -41,6 +41,18 @@ export interface Commit {
   created_at: string;
 }
 
+export interface RepositoryMember {
+  id: string;
+  repository_id: string;
+  user_id: string | null;
+  email: string;
+  role: 'viewer';
+  status: 'pending' | 'active';
+  invited_by: string;
+  invited_at: string;
+  joined_at: string | null;
+}
+
 export interface CommitSummary {
   id: string;
   commit_id: string;

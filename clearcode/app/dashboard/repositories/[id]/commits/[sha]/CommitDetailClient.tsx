@@ -356,22 +356,23 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
   return (
     <div className="space-y-6">
       {/* ナビゲーション（スクロール追従） */}
-      <div className="sticky top-0 z-10 -mx-4 px-4 py-2 bg-white/90 backdrop-blur-sm border-b border-neutral-100 flex items-center justify-between">
+      <div className="sticky top-0 z-10 -mx-4 sm:-mx-6 px-4 sm:px-6 py-2 bg-white/90 backdrop-blur-sm border-b border-neutral-100 flex items-center justify-between gap-2">
         <Link
           href={`/dashboard/repositories/${repositoryId}`}
-          className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-black transition-colors bg-white border border-neutral-200 hover:border-neutral-400 rounded-lg px-3 py-1.5"
+          className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-black transition-colors bg-white border border-neutral-200 hover:border-neutral-400 rounded-lg px-3 py-1.5 shrink-0"
         >
           <ChevronLeft className="w-4 h-4" />
-          {repositoryName} に戻る
+          <span className="hidden sm:inline">{repositoryName} に戻る</span>
+          <span className="sm:hidden">戻る</span>
         </Link>
-        <div className="flex items-center gap-1.5 text-xs text-neutral-400">
-          <Link href="/dashboard" className="hover:text-neutral-700 transition-colors">ホーム</Link>
+        <div className="hidden sm:flex items-center gap-1.5 text-xs text-neutral-400 truncate">
+          <Link href="/dashboard" className="hover:text-neutral-700 transition-colors shrink-0">ホーム</Link>
           <span>/</span>
-          <Link href={`/dashboard/repositories/${repositoryId}`} className="hover:text-neutral-700 transition-colors">
+          <Link href={`/dashboard/repositories/${repositoryId}`} className="hover:text-neutral-700 transition-colors truncate max-w-[120px]">
             {repositoryName}
           </Link>
           <span>/</span>
-          <span className="font-mono text-neutral-600">{sha.slice(0, 7)}</span>
+          <span className="font-mono text-neutral-600 shrink-0">{sha.slice(0, 7)}</span>
         </div>
       </div>
 
@@ -394,7 +395,7 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
             </Button>
           </a>
         </div>
-        <div className="flex items-center gap-3 text-sm text-neutral-400">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-400">
           <span>{commit.author_name}</span>
           <span>·</span>
           <span>{date}</span>
@@ -457,20 +458,22 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
       {/* タブ */}
       {s ? (
         <div className="space-y-4">
-          <div className="flex gap-1 bg-neutral-100 p-1 rounded-xl w-fit flex-wrap">
-            {tabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  activeTab === tab.key
-                    ? "bg-white text-neutral-900 shadow-sm"
-                    : "text-neutral-500 hover:text-neutral-700"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div className="overflow-x-auto pb-1 -mx-4 sm:mx-0 px-4 sm:px-0">
+            <div className="flex gap-1 bg-neutral-100 p-1 rounded-xl w-max sm:w-fit">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                    activeTab === tab.key
+                      ? "bg-white text-neutral-900 shadow-sm"
+                      : "text-neutral-500 hover:text-neutral-700"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="bg-white rounded-xl border border-neutral-100 min-h-36">

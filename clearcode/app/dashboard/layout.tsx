@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import LogoutButton from "@/components/LogoutButton";
+import MobileNav from "@/components/MobileNav";
 
 export default function DashboardLayout({
   children,
@@ -10,14 +11,15 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen bg-neutral-50">
       <header className="bg-white border-b border-neutral-100 sticky top-0 z-10">
-        <div className="container mx-auto px-6 py-4 flex justify-between items-center">
+        <div className="container mx-auto px-4 sm:px-6 py-4 flex justify-between items-center relative">
           <Link
             href="/dashboard"
             className="text-lg font-semibold tracking-tight text-black"
           >
             Clearcode
           </Link>
-          <nav className="flex items-center gap-1">
+          {/* デスクトップナビ */}
+          <nav className="hidden sm:flex items-center gap-1">
             <Link href="/dashboard">
               <Button variant="ghost" className="text-sm text-neutral-500 hover:text-black">
                 ホーム
@@ -40,9 +42,11 @@ export default function DashboardLayout({
             </Link>
             <LogoutButton />
           </nav>
+          {/* モバイルナビ */}
+          <MobileNav />
         </div>
       </header>
-      <main className="container mx-auto px-6 py-10">{children}</main>
+      <main className="container mx-auto px-4 sm:px-6 py-6 sm:py-10">{children}</main>
     </div>
   );
 }

@@ -41,6 +41,14 @@ export async function POST(req: NextRequest) {
       isNewUser = true;
     }
 
+    // pending の招待を active に更新
+    await query(
+      `UPDATE repository_members
+       SET user_id = $1, status = 'active', joined_at = NOW()
+       WHERE email = $2 AND status = 'pending'`,
+      [userId, normalized]
+    );
+
     // JWTセッション発行
     const secret = new TextEncoder().encode(process.env.SESSION_SECRET!);
     const sessionToken = await new SignJWT({ user_id: userId })

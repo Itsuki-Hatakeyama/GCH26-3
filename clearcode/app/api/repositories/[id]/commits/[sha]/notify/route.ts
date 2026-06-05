@@ -42,13 +42,27 @@ export async function POST(
 
   const { data: repo } = await supabase()
     .from('repositories')
-    .select('name, owner')
+    .select('name, owner, user_id')
     .eq('id', id)
-    .eq('user_id', session.user_id)
     .single()
 
   if (!repo) {
     return NextResponse.json({ error: { code: 'NOT_FOUND' } }, { status: 404 })
+  }
+
+  // オーナーでない場合はメンバーか確認
+  if (repo.user_id !== session.user_id) {
+    const { data: membership } = await supabase()
+      .from('repository_members')
+      .select('id')
+      .eq('repository_id', id)
+      .eq('user_id', session.user_id)
+      .eq('status', 'active')
+      .single()
+
+    if (!membership) {
+      return NextResponse.json({ error: { code: 'NOT_FOUND' } }, { status: 404 })
+    }
   }
 
   const { data: commit } = await supabase()
@@ -76,12 +90,12 @@ export async function POST(
     )
   }
 
-  // GitHub diff 取得
+  // GitHub diff 取得（オーナーのトークンを使用）
   let diff: string | undefined
   const { data: ghIntegration } = await supabase()
     .from('github_integrations')
     .select('access_token_encrypted')
-    .eq('user_id', session.user_id)
+    .eq('user_id', repo.user_id)
     .single()
 
   if (ghIntegration?.access_token_encrypted) {

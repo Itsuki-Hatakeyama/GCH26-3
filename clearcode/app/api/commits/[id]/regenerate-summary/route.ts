@@ -25,12 +25,10 @@ export async function POST(
 
   const { id } = await params;
 
-  // ユーザーのリポジトリに属するコミットのみ許可
   const { data: commit, error } = await supabase()
     .from("commits")
-    .select("id, sha, message, repositories!inner(user_id)")
+    .select("id, sha, message, repository_id, repositories!inner(user_id)")
     .eq("id", id)
-    .eq("repositories.user_id", session.user_id)
     .single();
 
   if (error || !commit) {
@@ -38,6 +36,24 @@ export async function POST(
       { error: { code: "NOT_FOUND", message: "コミットが見つかりません" } },
       { status: 404 }
     );
+  }
+
+  const repo = Array.isArray(commit.repositories) ? commit.repositories[0] : commit.repositories;
+  if (repo?.user_id !== session.user_id) {
+    const { data: membership } = await supabase()
+      .from("repository_members")
+      .select("id")
+      .eq("repository_id", commit.repository_id)
+      .eq("user_id", session.user_id)
+      .eq("status", "active")
+      .single();
+
+    if (!membership) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "コミットが見つかりません" } },
+        { status: 404 }
+      );
+    }
   }
 
   const { provider, apiKey } = await getUserAIConfig(session.user_id)

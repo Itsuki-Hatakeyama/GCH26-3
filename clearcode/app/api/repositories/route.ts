@@ -10,13 +10,32 @@ export async function GET() {
     return NextResponse.json({ error: { code: 'UNAUTHORIZED', message: 'ログインが必要です' } }, { status: 401 })
   }
 
-  const { data: repos } = await supabaseAdmin
+  const { data: ownedRepos } = await supabaseAdmin
     .from('repositories')
     .select('*, slack_integrations(channel_name, is_active)')
     .eq('user_id', session.user_id)
     .order('updated_at', { ascending: false })
 
-  if (!repos) return NextResponse.json({ repositories: [] })
+  const { data: memberships } = await supabaseAdmin
+    .from('repository_members')
+    .select('repository_id')
+    .eq('user_id', session.user_id)
+    .eq('status', 'active')
+
+  const memberRepoIds = (memberships ?? []).map((m: { repository_id: string }) => m.repository_id)
+
+  let memberRepos: typeof ownedRepos = []
+  if (memberRepoIds.length > 0) {
+    const { data } = await supabaseAdmin
+      .from('repositories')
+      .select('*, slack_integrations(channel_name, is_active)')
+      .in('id', memberRepoIds)
+      .order('updated_at', { ascending: false })
+    memberRepos = data ?? []
+  }
+
+  const repos = [...(ownedRepos ?? []), ...memberRepos]
+  if (repos.length === 0) return NextResponse.json({ repositories: [] })
 
   // 未読コミット数を付加
   const reposWithUnread = await Promise.all(

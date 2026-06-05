@@ -27,7 +27,6 @@ export async function GET(
     .from("repositories")
     .select("*")
     .eq("id", id)
-    .eq("user_id", session.user_id)
     .single();
 
   if (error || !repository) {
@@ -37,7 +36,26 @@ export async function GET(
     );
   }
 
-  return NextResponse.json(repository);
+  const isOwner = repository.user_id === session.user_id;
+
+  if (!isOwner) {
+    const { data: membership } = await supabase()
+      .from("repository_members")
+      .select("id")
+      .eq("repository_id", id)
+      .eq("user_id", session.user_id)
+      .eq("status", "active")
+      .single();
+
+    if (!membership) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "リポジトリが見つかりません" } },
+        { status: 404 }
+      );
+    }
+  }
+
+  return NextResponse.json({ ...repository, is_owner: isOwner });
 }
 
 export async function DELETE(

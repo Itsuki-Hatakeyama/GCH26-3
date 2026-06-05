@@ -3,10 +3,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ExternalLink, RefreshCw, Trash2, GitBranch, ChevronDown, Search } from "lucide-react";
+import { ExternalLink, RefreshCw, Trash2, GitBranch, ChevronDown, Search, UserPlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CommitCard, { type CommitWithSummary } from "@/components/CommitCard";
-import type { Repository } from "@/types/database";
+import type { Repository, RepositoryMember } from "@/types/database";
 
 function BranchSelector({
   branches,
@@ -118,7 +118,7 @@ interface Pagination {
 
 export default function RepositoryDetailClient({ id }: { id: string }) {
   const router = useRouter();
-  const [repo, setRepo] = useState<Repository | null>(null);
+  const [repo, setRepo] = useState<(Repository & { is_owner?: boolean }) | null>(null);
   const [branches, setBranches] = useState<string[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
   const [unreadCommits, setUnreadCommits] = useState<CommitWithSummary[]>([]);
@@ -128,6 +128,11 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
   const [pageLoading, setPageLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [members, setMembers] = useState<RepositoryMember[]>([]);
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
 
   const fetchCommitsFromDB = useCallback(
     async (page = 1, branch: string | null = null) => {
@@ -169,6 +174,46 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
     setRepo(await repoRes.json());
   }, [id]);
 
+  const fetchMembers = useCallback(async () => {
+    const res = await fetch(`/api/repositories/${id}/members`);
+    if (res.ok) {
+      const data = await res.json();
+      setMembers(data.members ?? []);
+    }
+  }, [id]);
+
+  const handleInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setInviteLoading(true);
+    setInviteError(null);
+    try {
+      const res = await fetch(`/api/repositories/${id}/members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: inviteEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setInviteError(data.error?.message ?? "招待に失敗しました");
+        return;
+      }
+      setInviteEmail("");
+      await fetchMembers();
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string) => {
+    if (!confirm("このメンバーを削除しますか？")) return;
+    await fetch(`/api/repositories/${id}/members`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ member_id: memberId }),
+    });
+    await fetchMembers();
+  };
+
   // 初回マウント
   useEffect(() => {
     (async () => {
@@ -183,6 +228,10 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
       }
     })();
   }, [id, fetchRepo, syncAndFetchPage]);
+
+  useEffect(() => {
+    if (repo?.is_owner) fetchMembers();
+  }, [repo?.is_owner, fetchMembers]);
 
   // 30秒ポーリング（DBのみ、GitHub不要）
   useEffect(() => {
@@ -286,7 +335,7 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
   return (
     <div className="space-y-8">
       {/* ヘッダー */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="space-y-3">
         <div>
           <div className="flex items-center gap-2 text-sm text-neutral-400 mb-2">
             <Link href="/dashboard" className="hover:text-neutral-700 transition-colors">ホーム</Link>
@@ -294,7 +343,7 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
             <span className="text-neutral-900">{repo.name}</span>
           </div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-semibold text-black">{repo.name}</h1>
+            <h1 className="text-xl sm:text-2xl font-semibold text-black">{repo.name}</h1>
             {repo.is_private && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-500">プライベート</span>
             )}
@@ -309,11 +358,11 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
             className="inline-flex items-center gap-1.5 mt-2 text-xs text-neutral-400 hover:text-neutral-700 transition-colors"
           >
             <ExternalLink className="w-3 h-3" />
-            {repo.html_url}
+            <span className="truncate max-w-[240px] sm:max-w-none">{repo.html_url}</span>
           </a>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2">
           <a href={repo.html_url} target="_blank" rel="noopener noreferrer">
             <Button variant="outline" size="sm" className="gap-1.5 rounded-full text-xs">
               <ExternalLink className="w-3 h-3" />
@@ -342,8 +391,65 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
             <Trash2 className="w-3 h-3" />
             削除
           </Button>
+          {repo.is_owner && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 rounded-full text-xs"
+              onClick={() => setShowInvite((v) => !v)}
+            >
+              <UserPlus className="w-3 h-3" />
+              メンバー招待
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* メンバー管理パネル */}
+      {repo.is_owner && showInvite && (
+        <div className="border border-neutral-200 rounded-xl p-4 space-y-4">
+          <h2 className="text-sm font-semibold text-neutral-900">メンバー管理</h2>
+
+          <form onSubmit={handleInvite} className="flex gap-2">
+            <input
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="招待するメールアドレス"
+              required
+              className="flex-1 text-xs border border-neutral-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-neutral-300"
+            />
+            <Button type="submit" size="sm" className="rounded-lg text-xs" disabled={inviteLoading}>
+              {inviteLoading ? "送信中..." : "招待する"}
+            </Button>
+          </form>
+          {inviteError && <p className="text-xs text-red-500">{inviteError}</p>}
+
+          {members.length > 0 && (
+            <ul className="space-y-2">
+              {members.map((m) => (
+                <li key={m.id} className="flex items-center justify-between text-xs text-neutral-700">
+                  <span>
+                    {m.email}
+                    <span className={`ml-2 px-1.5 py-0.5 rounded-full text-[10px] ${m.status === "active" ? "bg-green-100 text-green-700" : "bg-neutral-100 text-neutral-500"}`}>
+                      {m.status === "active" ? "登録済み" : "招待中"}
+                    </span>
+                  </span>
+                  <button
+                    onClick={() => handleRemoveMember(m.id)}
+                    className="text-neutral-400 hover:text-red-500 transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {members.length === 0 && (
+            <p className="text-xs text-neutral-400">まだメンバーがいません</p>
+          )}
+        </div>
+      )}
 
       {/* ブランチフィルター */}
       {branches.length > 0 && (
