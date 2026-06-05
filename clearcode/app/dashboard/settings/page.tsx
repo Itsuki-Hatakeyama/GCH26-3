@@ -57,13 +57,13 @@ export default function SettingsPage() {
           <Row label="対象" value="エンジニア（GitHub アカウント保持者）" />
           <Row label="ページ" value="ダッシュボード → リポジトリ追加" />
         </InfoBox>
-        <div className="rounded-xl border border-blue-100 dark:border-blue-900/40 overflow-hidden">
-          <div className="bg-blue-50 dark:bg-blue-900/20 px-4 py-2.5 border-b border-blue-100 dark:border-blue-900/40">
-            <p className="text-xs font-semibold text-blue-700 dark:text-blue-400">🔧 GitHub OAuth App の作成と設定（各自で実施）</p>
-          </div>
-          <div className="px-4 py-3 space-y-2">
+        <details className="rounded-xl border border-gray-100 dark:border-neutral-800 overflow-hidden">
+          <summary className="px-4 py-3 text-xs font-medium text-gray-400 dark:text-neutral-500 cursor-pointer hover:text-gray-600 dark:hover:text-neutral-300 select-none">
+            ⚠️ GitHub 連携でエラーが出る場合はこちら
+          </summary>
+          <div className="px-4 pb-4 pt-2 space-y-2 border-t border-gray-100 dark:border-neutral-800">
             <p className="text-xs text-gray-500 dark:text-neutral-400">
-              GitHub 連携を使うには、自分の GitHub OAuth App を作成してプロフィールに登録する必要があります。
+              「redirect_uri is not associated」などのエラーが出る場合、自分の GitHub OAuth App を作成してプロフィールに登録することで解決できます。
             </p>
             <ol className="space-y-2">
               {([
@@ -74,13 +74,13 @@ export default function SettingsPage() {
                 'プロフィール画面の「GitHub OAuth 資格情報」に Client ID と Client Secret を入力して保存',
               ] as string[]).map((item, i) => (
                 <li key={i} className="flex gap-3 text-xs text-gray-500 dark:text-neutral-400">
-                  <span className="shrink-0 w-4 h-4 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 text-xs font-semibold flex items-center justify-center">{i + 1}</span>
+                  <span className="shrink-0 w-4 h-4 rounded-full bg-gray-100 dark:bg-neutral-800 text-gray-500 dark:text-neutral-400 text-xs font-semibold flex items-center justify-center">{i + 1}</span>
                   <span className="whitespace-pre-line">{item}</span>
                 </li>
               ))}
             </ol>
           </div>
-        </div>
+        </details>
         <Note>非エンジニアは GitHub アカウントがなくても Clearcode を利用できます。</Note>
       </Step>
 
