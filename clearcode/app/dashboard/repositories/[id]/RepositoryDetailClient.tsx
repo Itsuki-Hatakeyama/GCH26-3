@@ -286,7 +286,7 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
   return (
     <div className="space-y-8">
       {/* ヘッダー */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="space-y-3">
         <div>
           <div className="flex items-center gap-2 text-sm text-neutral-400 mb-2">
             <Link href="/dashboard" className="hover:text-neutral-700 transition-colors">ホーム</Link>
@@ -294,7 +294,7 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
             <span className="text-neutral-900">{repo.name}</span>
           </div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-semibold text-black">{repo.name}</h1>
+            <h1 className="text-xl sm:text-2xl font-semibold text-black">{repo.name}</h1>
             {repo.is_private && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-500">プライベート</span>
             )}
@@ -309,11 +309,11 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
             className="inline-flex items-center gap-1.5 mt-2 text-xs text-neutral-400 hover:text-neutral-700 transition-colors"
           >
             <ExternalLink className="w-3 h-3" />
-            {repo.html_url}
+            <span className="truncate max-w-[240px] sm:max-w-none">{repo.html_url}</span>
           </a>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2">
           <a href={repo.html_url} target="_blank" rel="noopener noreferrer">
             <Button variant="outline" size="sm" className="gap-1.5 rounded-full text-xs">
               <ExternalLink className="w-3 h-3" />

@@ -56,8 +56,8 @@ export default function SettingsPage() {
                 <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center">2</span>
                 <div>
                   <p className="text-sm font-medium text-gray-800">アプリ情報を入力する</p>
-                  <div className="mt-2 rounded-lg border border-gray-100 overflow-hidden text-xs">
-                    <table className="w-full">
+                  <div className="mt-2 rounded-lg border border-gray-100 overflow-x-auto text-xs">
+                    <table className="w-full min-w-[400px]">
                       <tbody>
                         {[
                           ["Application name", "Clearcode"],
@@ -65,8 +65,8 @@ export default function SettingsPage() {
                           ["Authorization callback URL", "https://あなたのドメイン.vercel.app/api/auth/github/callback"],
                         ].map(([label, value]) => (
                           <tr key={label} className="border-b border-gray-100 last:border-0">
-                            <td className="px-3 py-2 text-gray-500 bg-neutral-50 w-48">{label}</td>
-                            <td className="px-3 py-2 text-gray-800 font-mono">{value}</td>
+                            <td className="px-3 py-2 text-gray-500 bg-neutral-50 w-40 sm:w-48 whitespace-nowrap">{label}</td>
+                            <td className="px-3 py-2 text-gray-800 font-mono break-all">{value}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -82,7 +82,7 @@ export default function SettingsPage() {
                   <p className="text-sm text-gray-500 mt-0.5 mb-2">
                     Vercel の場合は <strong className="text-gray-700">Project → Settings → Environment Variables</strong> に以下を追加してください。
                   </p>
-                  <div className="bg-gray-900 rounded-lg px-4 py-3 text-xs font-mono text-gray-300 leading-relaxed">
+                  <div className="bg-gray-900 rounded-lg px-4 py-3 text-xs font-mono text-gray-300 leading-relaxed overflow-x-auto">
                     <span className="text-gray-500"># Vercel の Environment Variables に追加</span><br />
                     GITHUB_CLIENT_ID=<span className="text-yellow-300">取得したClient ID</span><br />
                     GITHUB_CLIENT_SECRET=<span className="text-yellow-300">取得したClient Secret</span><br />
@@ -148,16 +148,16 @@ export default function SettingsPage() {
                 <div>
                   <p className="text-sm font-medium text-gray-800">Privacy Policy と Support URL を設定する</p>
                   <p className="text-sm text-gray-500 mt-0.5 mb-2">有効化の前にSlackから以下のURLの入力が求められます。</p>
-                  <div className="rounded-lg border border-gray-100 overflow-hidden text-xs">
-                    <table className="w-full">
+                  <div className="rounded-lg border border-gray-100 overflow-x-auto text-xs">
+                    <table className="w-full min-w-[380px]">
                       <tbody>
                         <tr className="border-b border-gray-100">
-                          <td className="px-3 py-2 text-gray-500 bg-neutral-50 w-48">Privacy Policy URL</td>
-                          <td className="px-3 py-2 text-gray-800 font-mono">https://あなたのドメイン.vercel.app/privacy</td>
+                          <td className="px-3 py-2 text-gray-500 bg-neutral-50 w-36 sm:w-48 whitespace-nowrap">Privacy Policy URL</td>
+                          <td className="px-3 py-2 text-gray-800 font-mono break-all">https://あなたのドメイン.vercel.app/privacy</td>
                         </tr>
                         <tr className="border-b border-gray-100">
-                          <td className="px-3 py-2 text-gray-500 bg-neutral-50">Support URL</td>
-                          <td className="px-3 py-2 text-gray-800 font-mono">https://あなたのドメイン.vercel.app/support</td>
+                          <td className="px-3 py-2 text-gray-500 bg-neutral-50 whitespace-nowrap">Support URL</td>
+                          <td className="px-3 py-2 text-gray-800 font-mono break-all">https://あなたのドメイン.vercel.app/support</td>
                         </tr>
                       </tbody>
                     </table>
