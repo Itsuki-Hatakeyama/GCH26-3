@@ -6,7 +6,6 @@ import Link from "next/link";
 import { ChevronDown, ChevronUp, ExternalLink, GitBranch, GitMerge, Loader2, Sparkles, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import TechBadge from "@/components/TechBadge";
-import QualityScore from "@/components/QualityScore";
 import ChangedFileList from "@/components/ChangedFileList";
 
 interface Technology {

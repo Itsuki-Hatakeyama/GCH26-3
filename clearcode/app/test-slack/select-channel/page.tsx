@@ -66,7 +66,7 @@ export default function SelectChannelPage() {
       } else {
         setResult({ success: false, message: data.error || 'エラーが発生しました' });
       }
-    } catch (error) {
+    } catch {
       setResult({ success: false, message: 'ネットワークエラーが発生しました' });
     } finally {
       setSending(false);
