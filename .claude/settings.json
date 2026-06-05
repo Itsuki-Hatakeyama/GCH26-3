@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(npm audit *)",
-      "Bash(PGPASSWORD=e7r14sbsbJPKwbq6 psql postgresql://postgres.yaivkjateypwceheaicu:e7r14sbsbJPKwbq6@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres -c ' *)"
+      "Bash(PGPASSWORD=e7r14sbsbJPKwbq6 psql postgresql://postgres.yaivkjateypwceheaicu:e7r14sbsbJPKwbq6@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres -c ' *)",
+      "Bash(git reset *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }
