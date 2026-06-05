@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronDown, ChevronUp, ExternalLink, GitBranch, GitMerge, Loader2, Sparkles, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -116,9 +117,18 @@ export default function CommitCard({ commit, isUnread = false, selectedBranch, d
     minute: "2-digit",
   }).format(new Date(commit.committed_at));
 
+  const router = useRouter();
+  const detailHref = `/dashboard/repositories/${commit.repository_id}/commits/${commit.sha}`;
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest("a, button")) return;
+    router.push(detailHref);
+  };
+
   return (
     <div
-      className={`rounded-xl border p-5 space-y-3 ${
+      onClick={handleCardClick}
+      className={`rounded-xl border p-5 space-y-3 cursor-pointer hover:border-neutral-300 transition-colors ${
         isUnread ? "bg-blue-50/40 border-blue-200" : "bg-white border-neutral-100"
       }`}
     >
@@ -286,9 +296,7 @@ export default function CommitCard({ commit, isUnread = false, selectedBranch, d
         {s?.message_quality_score != null && (
           <QualityScore score={s.message_quality_score} />
         )}
-        <Link
-          href={`/dashboard/repositories/${commit.repository_id}/commits/${commit.sha}`}
-        >
+        <Link href={detailHref}>
           <Button variant="outline" size="sm" className="rounded-full text-xs h-7 px-3">
             詳細を見る
           </Button>

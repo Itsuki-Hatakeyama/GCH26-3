@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { ChangeCategory } from '@/lib/prompts/categorize-change'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
-const MODEL = 'gemini-1.5-flash'
+const MODEL = 'gemini-2.0-flash'
 
 function compressDiff(diff: string): string {
   if (!diff || diff.length <= 1000) return diff
