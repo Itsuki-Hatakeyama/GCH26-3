@@ -5,11 +5,9 @@ type DiffLine = {
   content: string
 }
 
-function parseDiff(diff: string): DiffLine[] {
-  const lines = diff.split('\n')
+function parseDiffLines(raw: string): DiffLine[] {
   const result: DiffLine[] = []
-
-  for (const line of lines) {
+  for (const line of raw.split('\n')) {
     if (
       line.startsWith('diff ') ||
       line.startsWith('index ') ||
@@ -18,7 +16,6 @@ function parseDiff(diff: string): DiffLine[] {
       line.startsWith('@@') ||
       line.startsWith('\\')
     ) continue
-
     if (line.startsWith('+')) {
       result.push({ type: 'added', content: line.slice(1) })
     } else if (line.startsWith('-')) {
@@ -27,12 +24,22 @@ function parseDiff(diff: string): DiffLine[] {
       result.push({ type: 'context', content: line.slice(1) || '' })
     }
   }
-
-  return result.slice(0, 50)
+  return result.slice(0, 80)
 }
 
-export async function generateDiffImage(diff: string, title: string): Promise<Buffer> {
-  const lines = parseDiff(diff)
+function splitDiffByFile(diff: string): { filename: string; raw: string }[] {
+  const files: { filename: string; raw: string }[] = []
+  const chunks = diff.split(/(?=^diff --git )/m)
+  for (const chunk of chunks) {
+    if (!chunk.trim()) continue
+    const match = chunk.match(/^\+\+\+ b\/(.+)$/m) ?? chunk.match(/^diff --git a\/.+ b\/(.+)$/m)
+    const filename = match?.[1] ?? 'unknown'
+    files.push({ filename, raw: chunk })
+  }
+  return files
+}
+
+async function renderImage(lines: DiffLine[], title: string): Promise<Buffer> {
   const lineHeight = 22
   const headerHeight = 48
   const paddingY = 20
@@ -115,4 +122,23 @@ export async function generateDiffImage(diff: string, title: string): Promise<Bu
 
   const arrayBuffer = await imageResponse.arrayBuffer()
   return Buffer.from(arrayBuffer)
+}
+
+// ファイル単位で画像化して返す
+export async function generateDiffImages(diff: string): Promise<{ filename: string; buffer: Buffer }[]> {
+  const files = splitDiffByFile(diff)
+  const results: { filename: string; buffer: Buffer }[] = []
+  for (const f of files) {
+    const lines = parseDiffLines(f.raw)
+    if (lines.length === 0) continue
+    const buffer = await renderImage(lines, f.filename)
+    results.push({ filename: f.filename, buffer })
+  }
+  return results
+}
+
+// 後方互換用（diff 全体を1枚に）
+export async function generateDiffImage(diff: string, title: string): Promise<Buffer> {
+  const lines = parseDiffLines(diff)
+  return renderImage(lines, title)
 }

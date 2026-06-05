@@ -19,11 +19,25 @@ export async function GET(
     .from('repositories')
     .select('*')
     .eq('id', id)
-    .eq('user_id', session.user_id)
     .single()
 
   if (!repo) {
     return NextResponse.json({ error: { code: 'NOT_FOUND' } }, { status: 404 })
+  }
+
+  // オーナーでない場合はメンバーか確認
+  if (repo.user_id !== session.user_id) {
+    const { data: membership } = await supabaseAdmin
+      .from('repository_members')
+      .select('id')
+      .eq('repository_id', id)
+      .eq('user_id', session.user_id)
+      .eq('status', 'active')
+      .single()
+
+    if (!membership) {
+      return NextResponse.json({ error: { code: 'NOT_FOUND' } }, { status: 404 })
+    }
   }
 
   const { data: commit } = await supabaseAdmin
@@ -37,16 +51,21 @@ export async function GET(
     return NextResponse.json({ error: { code: 'NOT_FOUND' } }, { status: 404 })
   }
 
+  // diff はリポジトリオーナーのトークンで取得
   const { data: integration } = await supabaseAdmin
     .from('github_integrations')
     .select('access_token_encrypted')
-    .eq('user_id', session.user_id)
+    .eq('user_id', repo.user_id)
     .single()
 
   let diff = ''
   if (integration) {
-    const accessToken = await decrypt(integration.access_token_encrypted)
-    diff = await github.getCommitDiff(accessToken, repo.owner, repo.name, sha)
+    try {
+      const accessToken = await decrypt(integration.access_token_encrypted)
+      diff = await github.getCommitDiff(accessToken, repo.owner, repo.name, sha)
+    } catch (err) {
+      console.error('[diff] decrypt/fetch failed:', err)
+    }
   }
 
   return NextResponse.json({ commit, diff, repo: { name: repo.name, full_name: repo.full_name } })

@@ -4,6 +4,7 @@ import { getSession } from '@/lib/auth'
 import { sendCommitNotification } from '@/lib/services/notification-service'
 import { github } from '@/lib/github'
 import { decrypt } from '@/lib/crypto'
+import { query } from '@/lib/db'
 
 function supabase() {
   return createClient(
@@ -42,13 +43,27 @@ export async function POST(
 
   const { data: repo } = await supabase()
     .from('repositories')
-    .select('name, owner')
+    .select('name, owner, user_id')
     .eq('id', id)
-    .eq('user_id', session.user_id)
     .single()
 
   if (!repo) {
     return NextResponse.json({ error: { code: 'NOT_FOUND' } }, { status: 404 })
+  }
+
+  // オーナーでない場合はメンバーか確認
+  if (repo.user_id !== session.user_id) {
+    const { data: membership } = await supabase()
+      .from('repository_members')
+      .select('id')
+      .eq('repository_id', id)
+      .eq('user_id', session.user_id)
+      .eq('status', 'active')
+      .single()
+
+    if (!membership) {
+      return NextResponse.json({ error: { code: 'NOT_FOUND' } }, { status: 404 })
+    }
   }
 
   const { data: commit } = await supabase()
@@ -61,6 +76,13 @@ export async function POST(
   if (!commit) {
     return NextResponse.json({ error: { code: 'NOT_FOUND' } }, { status: 404 })
   }
+
+  // デバッグ: is_active に関わらず全レコードを確認
+  const { data: slackDebug } = await supabase()
+    .from('slack_integrations')
+    .select('repository_id, channel_id, channel_name, is_active, workspace_name')
+    .eq('repository_id', id)
+  console.log('[notify] slack_integrations for repo', id, ':', JSON.stringify(slackDebug))
 
   const { data: slack } = await supabase()
     .from('slack_integrations')
@@ -76,12 +98,12 @@ export async function POST(
     )
   }
 
-  // GitHub diff 取得
+  // GitHub diff 取得（オーナーのトークンを使用）
   let diff: string | undefined
   const { data: ghIntegration } = await supabase()
     .from('github_integrations')
     .select('access_token_encrypted')
-    .eq('user_id', session.user_id)
+    .eq('user_id', repo.user_id)
     .single()
 
   if (ghIntegration?.access_token_encrypted) {
@@ -99,8 +121,21 @@ export async function POST(
     : commit.commit_summaries ? [commit.commit_summaries] : []
   const summary = summaries[0] ?? null
 
+  // Bot Tokenモード（access_token_encryptedが空）のとき、リポジトリオーナーのユーザートークンを使用
+  let resolvedAccessToken = slack.access_token_encrypted
+  if (!resolvedAccessToken) {
+    const ownerResult = await query<{ slack_bot_token_encrypted: string | null }>(
+      'SELECT slack_bot_token_encrypted FROM users WHERE id = $1',
+      [repo.user_id]
+    )
+    const ownerToken = ownerResult.rows[0]?.slack_bot_token_encrypted
+    if (ownerToken) {
+      resolvedAccessToken = ownerToken
+    }
+  }
+
   await sendCommitNotification({
-    accessTokenEncrypted: slack.access_token_encrypted,
+    accessTokenEncrypted: resolvedAccessToken,
     channelId: slack.channel_id,
     repoName: repo.name,
     commitSha: commit.sha,

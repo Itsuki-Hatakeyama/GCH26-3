@@ -10,13 +10,48 @@ export async function GET() {
     return NextResponse.json({ error: { code: 'UNAUTHORIZED', message: 'ログインが必要です' } }, { status: 401 })
   }
 
-  const { data: repos } = await supabaseAdmin
+  const { data: ownedRepos } = await supabaseAdmin
     .from('repositories')
-    .select('*, slack_integrations(channel_name, is_active)')
+    .select('*')
     .eq('user_id', session.user_id)
     .order('updated_at', { ascending: false })
 
-  if (!repos) return NextResponse.json({ repositories: [] })
+  const { data: memberships } = await supabaseAdmin
+    .from('repository_members')
+    .select('repository_id')
+    .eq('user_id', session.user_id)
+    .eq('status', 'active')
+
+  const memberRepoIds = (memberships ?? []).map((m: { repository_id: string }) => m.repository_id)
+
+  let memberRepos: typeof ownedRepos = []
+  if (memberRepoIds.length > 0) {
+    const { data } = await supabaseAdmin
+      .from('repositories')
+      .select('*')
+      .in('id', memberRepoIds)
+      .order('updated_at', { ascending: false })
+    memberRepos = data ?? []
+  }
+
+  const ownedWithFlag = (ownedRepos ?? []).map((r) => ({ ...r, is_owner: true }))
+  const memberWithFlag = memberRepos.map((r) => ({ ...r, is_owner: false }))
+  const repos = [...ownedWithFlag, ...memberWithFlag]
+  if (repos.length === 0) return NextResponse.json({ repositories: [] })
+
+  const repoIds = repos.map((r) => r.id)
+
+  const { data: slackRows } = await supabaseAdmin
+    .from('slack_integrations')
+    .select('repository_id, channel_name, is_active')
+    .in('repository_id', repoIds)
+
+  const slackMap = new Map(
+    (slackRows ?? []).map((s: { repository_id: string; channel_name: string; is_active: boolean }) => [
+      s.repository_id,
+      { channel_name: s.channel_name, is_active: s.is_active },
+    ])
+  )
 
   // 未読コミット数を付加
   const reposWithUnread = await Promise.all(
@@ -30,10 +65,7 @@ export async function GET() {
           .gt('committed_at', repo.last_viewed_at)
         unread_count = count ?? 0
       }
-      const slackArr = Array.isArray(repo.slack_integrations) ? repo.slack_integrations : []
-      const slack_integration = slackArr[0] ?? null
-      const { slack_integrations: _, ...repoData } = repo
-      return { ...repoData, unread_count, slack_integration }
+      return { ...repo, unread_count, slack_integration: slackMap.get(repo.id) ?? null }
     })
   )
 

@@ -225,6 +225,7 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
   const [regenerated, setRegenerated] = useState(false);
   const [notifying, setNotifying] = useState(false);
   const [notifyResult, setNotifyResult] = useState<string | null>(null);
+  const [rawDiff, setRawDiff] = useState<string>("");
 
   const fetchCommit = useCallback(async () => {
     const [commitRes, diffRes] = await Promise.all([
@@ -236,6 +237,7 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
     setCommit(commitData.commit);
     if (diffRes.ok) {
       const diffData = await diffRes.json();
+      setRawDiff(diffData.diff ?? "");
       setDiffFiles(parseDiff(diffData.diff ?? ""));
     }
   }, [repositoryId, sha]);
@@ -243,14 +245,48 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
   useEffect(() => {
     (async () => {
       try {
-        await fetchCommit();
+        const [commitRes, diffRes] = await Promise.all([
+          fetch(`/api/repositories/${repositoryId}/commits?sha=${sha}`),
+          fetch(`/api/repositories/${repositoryId}/commits/${sha}`),
+        ]);
+        if (!commitRes.ok) throw new Error("コミットが見つかりません");
+        const commitData = await commitRes.json();
+        const fetchedCommit: CommitDetail = commitData.commit;
+        setCommit(fetchedCommit);
+        if (diffRes.ok) {
+          const diffData = await diffRes.json();
+          setRawDiff(diffData.diff ?? "");
+          setDiffFiles(parseDiff(diffData.diff ?? ""));
+        }
+
+        // 要約がなければ自動生成
+        const summaries = Array.isArray(fetchedCommit.commit_summaries)
+          ? fetchedCommit.commit_summaries
+          : fetchedCommit.commit_summaries
+          ? [fetchedCommit.commit_summaries]
+          : [];
+        if (summaries.length === 0) {
+          setRegenerating(true);
+          try {
+            const res = await fetch(`/api/commits/${fetchedCommit.id}/regenerate-summary`, { method: "POST" });
+            if (res.ok) {
+              const genRes = await fetch(`/api/repositories/${repositoryId}/commits?sha=${sha}`);
+              if (genRes.ok) {
+                const genData = await genRes.json();
+                setCommit(genData.commit);
+              }
+            }
+          } finally {
+            setRegenerating(false);
+          }
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "エラーが発生しました");
       } finally {
         setLoading(false);
       }
     })();
-  }, [fetchCommit]);
+  }, [repositoryId, sha]);
 
   const handleCopySha = async () => {
     await navigator.clipboard.writeText(sha);
@@ -281,7 +317,9 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
       const res = await fetch(`/api/repositories/${repositoryId}/commits/${sha}/notify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({
+          diffText: rawDiff || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -344,7 +382,6 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "summary", label: "ひとことで" },
-    { key: "visual", label: "画面の変化" },
     { key: "code", label: "コードの説明" },
     { key: "diff", label: `差分 (${diffFiles.length}ファイル)` },
   ];
@@ -352,22 +389,23 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
   return (
     <div className="space-y-6">
       {/* ナビゲーション（スクロール追従） */}
-      <div className="sticky top-0 z-10 -mx-4 px-4 py-2 bg-white/90 backdrop-blur-sm border-b border-neutral-100 flex items-center justify-between">
+      <div className="sticky top-0 z-10 -mx-4 sm:-mx-6 px-4 sm:px-6 py-2 bg-white/90 backdrop-blur-sm border-b border-neutral-100 flex items-center justify-between gap-2">
         <Link
           href={`/dashboard/repositories/${repositoryId}`}
-          className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-black transition-colors bg-white border border-neutral-200 hover:border-neutral-400 rounded-lg px-3 py-1.5"
+          className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-black transition-colors bg-white border border-neutral-200 hover:border-neutral-400 rounded-lg px-3 py-1.5 shrink-0"
         >
           <ChevronLeft className="w-4 h-4" />
-          {repositoryName} に戻る
+          <span className="hidden sm:inline">{repositoryName} に戻る</span>
+          <span className="sm:hidden">戻る</span>
         </Link>
-        <div className="flex items-center gap-1.5 text-xs text-neutral-400">
-          <Link href="/dashboard" className="hover:text-neutral-700 transition-colors">ホーム</Link>
+        <div className="hidden sm:flex items-center gap-1.5 text-xs text-neutral-400 truncate">
+          <Link href="/dashboard" className="hover:text-neutral-700 transition-colors shrink-0">ホーム</Link>
           <span>/</span>
-          <Link href={`/dashboard/repositories/${repositoryId}`} className="hover:text-neutral-700 transition-colors">
+          <Link href={`/dashboard/repositories/${repositoryId}`} className="hover:text-neutral-700 transition-colors truncate max-w-[120px]">
             {repositoryName}
           </Link>
           <span>/</span>
-          <span className="font-mono text-neutral-600">{sha.slice(0, 7)}</span>
+          <span className="font-mono text-neutral-600 shrink-0">{sha.slice(0, 7)}</span>
         </div>
       </div>
 
@@ -390,13 +428,46 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
             </Button>
           </a>
         </div>
-        <div className="flex items-center gap-3 text-sm text-neutral-400">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-400">
           <span>{commit.author_name}</span>
           <span>·</span>
           <span>{date}</span>
         </div>
         {diffFiles.length > 0 && (
           <ChangedFileList files={diffFiles.map((f) => f.filename)} />
+        )}
+      </div>
+
+      {/* アクション */}
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          variant="outline"
+          className="rounded-full gap-2"
+          onClick={handleRegenerate}
+          disabled={regenerating}
+        >
+          <RefreshCw className={`w-4 h-4 ${regenerating ? "animate-spin" : ""}`} />
+          {regenerating ? "生成中..." : regenerated ? "生成しました" : "要約を生成"}
+        </Button>
+
+        <Button
+          variant="outline"
+          className="rounded-full gap-2"
+          onClick={handleNotifySlack}
+          disabled={notifying}
+        >
+          <Send className="w-4 h-4" />
+          {notifying ? "送信中..." : "Slackに送信"}
+        </Button>
+
+        {notifyResult && (
+          <span className={`text-xs px-3 py-1 rounded-full ${
+            notifyResult.includes("送信しました")
+              ? "bg-green-100 text-green-700"
+              : "bg-red-100 text-red-700"
+          }`}>
+            {notifyResult}
+          </span>
         )}
       </div>
 
@@ -420,20 +491,22 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
       {/* タブ */}
       {s ? (
         <div className="space-y-4">
-          <div className="flex gap-1 bg-neutral-100 p-1 rounded-xl w-fit flex-wrap">
-            {tabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  activeTab === tab.key
-                    ? "bg-white text-neutral-900 shadow-sm"
-                    : "text-neutral-500 hover:text-neutral-700"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div className="overflow-x-auto pb-1 -mx-4 sm:mx-0 px-4 sm:px-0">
+            <div className="flex gap-1 bg-neutral-100 p-1 rounded-xl w-max sm:w-fit">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                    activeTab === tab.key
+                      ? "bg-white text-neutral-900 shadow-sm"
+                      : "text-neutral-500 hover:text-neutral-700"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="bg-white rounded-xl border border-neutral-100 min-h-36">
@@ -533,7 +606,14 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
         </div>
       ) : (
         <div className="bg-neutral-50 rounded-xl border border-neutral-100 p-8 text-center space-y-3">
-          <p className="text-sm text-neutral-400">要約がまだ生成されていません</p>
+          {regenerating ? (
+            <div className="flex flex-col items-center gap-3">
+              <RefreshCw className="w-5 h-5 text-neutral-400 animate-spin" />
+              <p className="text-sm text-neutral-400">要約を自動生成しています...</p>
+            </div>
+          ) : (
+            <p className="text-sm text-neutral-400">要約を生成できませんでした</p>
+          )}
           {diffFiles.length > 0 && (
             <div className="mt-4 text-left space-y-2">
               <p className="text-xs text-neutral-400 mb-2">差分のみ表示</p>
@@ -573,39 +653,6 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
           <pre className="text-xs text-gray-600 bg-gray-50 rounded-lg px-4 py-3 whitespace-pre-wrap font-mono">
             {commit.message}
           </pre>
-        )}
-      </div>
-
-      {/* アクション */}
-      <div className="flex flex-wrap items-center gap-3">
-        <Button
-          variant="outline"
-          className="rounded-full gap-2"
-          onClick={handleRegenerate}
-          disabled={regenerating}
-        >
-          <RefreshCw className={`w-4 h-4 ${regenerating ? "animate-spin" : ""}`} />
-          {regenerating ? "生成中..." : regenerated ? "再生成しました" : "要約を再生成"}
-        </Button>
-
-        <Button
-          variant="outline"
-          className="rounded-full gap-2"
-          onClick={handleNotifySlack}
-          disabled={notifying}
-        >
-          <Send className="w-4 h-4" />
-          {notifying ? "送信中..." : "Slackに送信"}
-        </Button>
-
-        {notifyResult && (
-          <span className={`text-xs px-3 py-1 rounded-full ${
-            notifyResult.includes("送信しました")
-              ? "bg-green-100 text-green-700"
-              : "bg-red-100 text-red-700"
-          }`}>
-            {notifyResult}
-          </span>
         )}
       </div>
 

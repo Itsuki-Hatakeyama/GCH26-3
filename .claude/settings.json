@@ -6,7 +6,29 @@
       "Bash(git reset *)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(npx tsc *)",
+      "Bash(npm install *)",
+      "Bash(wait)",
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3099/)",
+      "Bash(npm list *)",
+      "Bash(npx playwright *)",
+      "Bash(node -e \"require\\('playwright'\\)\")",
+      "Bash(npm root *)",
+      "Bash(npx --yes playwright@1.60.0 --version)",
+      "Bash(mkdir -p /tmp/clearcode-test)",
+      "Read(//tmp/**)",
+      "Bash(npm init *)",
+      "Bash(cat)",
+      "Read(//private/tmp/clearcode-test/**)",
+      "Bash(node test2.js)",
+      "Bash(mkdir -p /Users/yugo_suzuki/GCH26-3/GCH26-3/clearcode/app/api/repositories/\\\\[id\\\\]/members)",
+      "Bash(xargs cat)",
+      "Bash(mkdir -p \"/Users/yugo_suzuki/GCH26-3/GCH26-3/clearcode/app/api/repositories/[id]/leave\")"
+    ],
+    "additionalDirectories": [
+      "/Users/yugo_suzuki/GCH26-3/GCH26-3/clearcode/app/api/repositories/[id]"
     ]
   }
 }
