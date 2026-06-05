@@ -44,7 +44,7 @@ Output this exact JSON structure:
   "categories": string[]               // 1-3 items from exactly: フロントエンド, バックエンド, インフラ, テスト, ドキュメント, 設定, リファクタリング, バグ修正
 }
 
-Example:
+Example 1 (フロントエンド・バグ修正):
 Input:
 コミットメッセージ: fix login bug
 差分:
@@ -53,7 +53,41 @@ Input:
 +  if (password.length < 8) return null
 
 Output:
-{"simplified_message":"ログインのパスワード条件を6文字から8文字に変更しました。","explanation_simple":"ログイン画面でパスワードが短すぎるときにエラーが出る条件を変更しました。以前は6文字以上でよかったのが、8文字以上が必要になりました。これによりアカウントがより安全になります。","explanation_technical":"app/login/page.tsxのパスワード長バリデーションの最小値を6文字から8文字に引き上げました。nullを返すearly returnパターンを維持しつつ、セキュリティポリシーを強化しています。","technical_terms":[{"term":"バリデーション","description":"入力された値が正しい形式かどうかチェックする処理"},{"term":"early return","description":"条件を満たさない場合に処理を早めに終了するコードの書き方"}],"quality_score":42,"quality_feedback":"何のバグか具体的に書くとよい（例：パスワード最小文字数を8文字に修正）","categories":["フロントエンド","バグ修正"]}`
+{"simplified_message":"ログインのパスワード条件を6文字から8文字に変更しました。","explanation_simple":"ログイン画面でパスワードが短すぎるときにエラーが出る条件を変更しました。以前は6文字以上でよかったのが、8文字以上が必要になりました。これによりアカウントがより安全になります。","explanation_technical":"app/login/page.tsxのパスワード長バリデーションの最小値を6文字から8文字に引き上げました。nullを返すearly returnパターンを維持しつつ、セキュリティポリシーを強化しています。","technical_terms":[{"term":"バリデーション","description":"入力された値が正しい形式かどうかチェックする処理"},{"term":"early return","description":"条件を満たさない場合に処理を早めに終了するコードの書き方"}],"quality_score":42,"quality_feedback":"何のバグか具体的に書くとよい（例：パスワード最小文字数を8文字に修正）","categories":["フロントエンド","バグ修正"]}
+
+Example 2 (バックエンド・新機能):
+Input:
+コミットメッセージ: add user profile API endpoint
+差分:
+変更ファイル: app/api/users/[id]/profile/route.ts
++export async function GET(req, { params }) {
++  const user = await db.users.findById(params.id)
++  if (!user) return NextResponse.json({ error: 'not found' }, { status: 404 })
++  return NextResponse.json({ name: user.name, email: user.email })
++}
+
+Output:
+{"simplified_message":"ユーザーのプロフィール情報を取得する機能を追加しました。","explanation_simple":"アプリがユーザーの名前やメールアドレスを取得できる新しい機能を追加しました。これにより、プロフィールページなどで最新の情報を表示できるようになります。ユーザー自身は特に操作不要で自動的に反映されます。","explanation_technical":"app/api/users/[id]/profile/route.tsにGETエンドポイントを新規実装しました。DBからユーザーを取得し、存在しない場合は404を返すエラーハンドリングも追加しています。","technical_terms":[{"term":"APIエンドポイント","description":"外部からデータをやりとりするための窓口となるURL"},{"term":"404","description":"リクエストしたデータが見つからない場合に返すエラーコード"}],"quality_score":55,"quality_feedback":"どんな情報を返すか具体的に書くとよい（例：ユーザープロフィール取得APIを追加）","categories":["バックエンド"]}
+
+Example 3 (リファクタリング・バックエンド):
+Input:
+コミットメッセージ: refactor auth middleware
+差分:
+変更ファイル: middleware/auth.ts
+-function checkAuth(req) {
+-  const token = req.headers['authorization']
+-  if (!token) throw new Error('unauthorized')
+-  const user = jwt.verify(token, SECRET)
+-  req.user = user
+-}
++async function checkAuth(req) {
++  const token = req.cookies.get('session')?.value
++  if (!token) return null
++  return await verifySession(token)
++}
+
+Output:
+{"simplified_message":"ログイン確認の仕組みをより安全な方式に作り直しました。","explanation_simple":"アプリにログインしているかどうかを確認する処理を改善しました。以前の方式より安全で、エラーが起きにくくなっています。ユーザーが直接気づく変化はありませんが、裏側の安定性が上がっています。","explanation_technical":"auth middlewareの認証フローをJWTヘッダー検証からセッションCookie検証に移行しました。例外スローをnull返却に変更し、呼び出し元でのエラーハンドリングを柔軟にしています。","technical_terms":[{"term":"ミドルウェア","description":"リクエストとレスポンスの間に挟まって共通処理を行うプログラム"},{"term":"JWT","description":"ログイン情報を安全にやりとりするための暗号化されたトークン形式"},{"term":"リファクタリング","description":"動作を変えずにコードの内部構造を整理・改善すること"}],"quality_score":60,"quality_feedback":"何をどう変えたか具体的に書くとよい（例：認証をJWTからセッションCookieに移行）","categories":["バックエンド","リファクタリング"]}`
 
 function buildUserPrompt(commitMessage: string, diff: string): string {
   return `コミットメッセージ: ${commitMessage}
