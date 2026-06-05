@@ -5,40 +5,59 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 const MODEL = 'llama-3.1-8b-instant'
 
 function compressDiff(diff: string): string {
-  if (!diff || diff.length <= 1000) return diff
+  if (!diff) return ''
 
-  const extracted = diff
-    .split('\n')
-    .filter((line) =>
-      line.startsWith('+') ||
-      line.startsWith('-') ||
-      line.startsWith('@@') ||
-      line.startsWith('diff --git')
+  const lines = diff.split('\n')
+
+  // 変更ファイル名を先頭に列挙
+  const fileNames = lines
+    .filter((l) => l.startsWith('diff --git'))
+    .map((l) => l.replace('diff --git a/', '').split(' b/')[0])
+  const fileHeader = fileNames.length > 0 ? `変更ファイル: ${fileNames.join(', ')}\n\n` : ''
+
+  if (diff.length <= 1000) return fileHeader + diff
+
+  const extracted = lines
+    .filter((l) =>
+      l.startsWith('+') ||
+      l.startsWith('-') ||
+      l.startsWith('@@') ||
+      l.startsWith('diff --git')
     )
     .join('\n')
 
-  if (extracted.length <= 2000) return extracted
-  return extracted.slice(0, 2000)
+  const body = extracted.length <= 2000 ? extracted : extracted.slice(0, 2000)
+  return fileHeader + body
 }
 
-const SYSTEM_PROMPT = `You are a Git commit analyzer. Respond with ONLY valid JSON — no markdown fences, no explanation.
+const SYSTEM_PROMPT = `You are a Git commit analyzer. You MUST respond with ONLY valid JSON — no markdown fences, no explanation, no extra text.
 All string values must be in Japanese.
 
-Output this exact structure:
+Output this exact JSON structure:
 {
-  "simplified_message": string,  // 1-2 sentences for non-programmers
+  "simplified_message": string,  // 1-2 sentences for non-programmers explaining what changed
   "code_explanation": string,    // 2-4 sentences on which files changed and user/feature impact
-  "quality_score": number,       // 0-100 integer rating commit message clarity
-  "quality_feedback": string,    // actionable feedback on the commit message, 50 chars or less
-  "categories": string[]         // 1-3 items from: フロントエンド, バックエンド, インフラ, テスト, ドキュメント, 設定, リファクタリング, バグ修正
-}`
+  "quality_score": number,       // integer 0-100 rating commit message clarity (100 = perfect, 0 = useless)
+  "quality_feedback": string,    // actionable improvement suggestion, 50 Japanese chars or less
+  "categories": string[]         // 1-3 items from exactly: フロントエンド, バックエンド, インフラ, テスト, ドキュメント, 設定, リファクタリング, バグ修正
+}
+
+Example:
+Input:
+コミットメッセージ: fix login bug
+差分:
+変更ファイル: app/login/page.tsx
+-  if (password.length < 6) return null
++  if (password.length < 8) return null
+
+Output:
+{"simplified_message":"ログイン時のパスワード検証を修正しました。6文字以上から8文字以上に変更されました。","code_explanation":"app/login/page.tsxのパスワード長チェックが6文字から8文字に変更されました。これによりセキュリティが向上し、短すぎるパスワードでのログインが防止されます。","quality_score":42,"quality_feedback":"何のバグか具体的に書くとよい（例：ログインのパスワード最小文字数を8文字に修正）","categories":["フロントエンド","バグ修正"]}`
 
 function buildUserPrompt(commitMessage: string, diff: string): string {
-  const diffSnippet = compressDiff(diff)
   return `コミットメッセージ: ${commitMessage}
 
 差分:
-${diffSnippet || '(差分なし)'}`
+${compressDiff(diff) || '(差分なし)'}`
 }
 
 async function generate(userPrompt: string, retries = 2): Promise<string> {
@@ -50,8 +69,9 @@ async function generate(userPrompt: string, retries = 2): Promise<string> {
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: userPrompt },
         ],
-        temperature: 0.3,
+        temperature: 0.1,
         max_tokens: 400,
+        response_format: { type: 'json_object' },
       })
       return result.choices[0].message.content?.trim() ?? ''
     } catch (err: unknown) {
@@ -87,7 +107,7 @@ export async function generateSummary(
 ): Promise<CommitSummary | { error: SummaryError } | null> {
   try {
     const raw = await generate(buildUserPrompt(commitMessage, diff))
-    const json = JSON.parse(raw.replace(/```json|```/g, '').trim())
+    const json = JSON.parse(raw)
 
     return {
       simplified_message: json.simplified_message ?? commitMessage,
