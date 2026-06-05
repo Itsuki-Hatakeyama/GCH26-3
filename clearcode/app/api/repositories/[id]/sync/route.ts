@@ -93,23 +93,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { error, data: upserted } = await supabaseAdmin
     .from('commits')
     .upsert(rows, { onConflict: 'repository_id,sha' })
-    .select('id, sha, branch_names')
+    .select('id, sha')
 
   if (error) {
     console.error('[sync] DB error:', error)
     return NextResponse.json({ error: { code: 'DB_ERROR', message: 'コミット保存に失敗しました' } }, { status: 500 })
   }
 
-  // branch_names を更新（既存の配列に新しいブランチ名をマージ）
+  // branch_names カラムが存在する場合のみ更新（存在しなければスキップ）
   for (const commit of upserted ?? []) {
     const newBranches = commitMap.get(commit.sha)?.branches ?? []
-    const existing: string[] = commit.branch_names ?? []
-    const merged = [...new Set([...existing, ...newBranches])]
-    if (merged.length !== existing.length) {
+    if (newBranches.length === 0) continue
+    try {
       await supabaseAdmin
         .from('commits')
-        .update({ branch_names: merged })
+        .update({ branch_names: newBranches })
         .eq('id', commit.id)
+    } catch {
+      // branch_names 列が未作成の場合はスキップ
+      break
     }
   }
 
