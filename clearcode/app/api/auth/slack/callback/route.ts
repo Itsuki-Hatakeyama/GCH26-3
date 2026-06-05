@@ -24,17 +24,23 @@ export async function GET(request: NextRequest) {
 
     const encryptedToken = await encrypt(tokenData.access_token)
 
-    // slack_integrationsに保存（チャンネルは後で設定）
     if (state) {
+      // 既存のチャンネル設定を引き継ぐ
+      const { data: existing } = await supabaseAdmin
+        .from('slack_integrations')
+        .select('channel_id, channel_name')
+        .eq('repository_id', state)
+        .single()
+
       const { error: upsertError } = await supabaseAdmin.from('slack_integrations').upsert(
         {
           repository_id: state,
           workspace_id: tokenData.team.id,
           workspace_name: tokenData.team.name,
-          channel_id: '',
-          channel_name: '',
+          channel_id: existing?.channel_id ?? '',
+          channel_name: existing?.channel_name ?? '',
           access_token_encrypted: encryptedToken,
-          is_active: false,
+          is_active: !!(existing?.channel_id),
         },
         { onConflict: 'repository_id' }
       )
@@ -53,6 +59,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(redirectPath, request.url))
   } catch (error) {
     console.error('Slack OAuth error:', error)
-    return NextResponse.redirect(new URL('/dashboard?slack_error=oauth_failed', request.url))
+    const errMsg = error instanceof Error ? error.message : 'oauth_failed'
+    const state = request.nextUrl.searchParams.get('state')
+    const dest = state
+      ? `/dashboard/repositories/${state}/slack?error=${encodeURIComponent(errMsg)}`
+      : `/dashboard?slack_error=${encodeURIComponent(errMsg)}`
+    return NextResponse.redirect(new URL(dest, request.url))
   }
 }
