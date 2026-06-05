@@ -27,7 +27,6 @@ export async function GET(
     .from("commits")
     .select("*, commit_summaries(*), repositories!inner(user_id)")
     .eq("id", id)
-    .eq("repositories.user_id", session.user_id)
     .single();
 
   if (error || !commit) {
@@ -35,6 +34,26 @@ export async function GET(
       { error: { code: "NOT_FOUND", message: "コミットが見つかりません" } },
       { status: 404 }
     );
+  }
+
+  const repo = Array.isArray(commit.repositories) ? commit.repositories[0] : commit.repositories;
+  const isOwner = repo?.user_id === session.user_id;
+
+  if (!isOwner) {
+    const { data: membership } = await supabase()
+      .from("repository_members")
+      .select("id")
+      .eq("repository_id", commit.repository_id)
+      .eq("user_id", session.user_id)
+      .eq("status", "active")
+      .single();
+
+    if (!membership) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "コミットが見つかりません" } },
+        { status: 404 }
+      );
+    }
   }
 
   return NextResponse.json(commit);
