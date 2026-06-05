@@ -21,36 +21,35 @@ function compressDiff(diff: string): string {
   return extracted.slice(0, 2000)
 }
 
-function buildCombinedPrompt(commitMessage: string, diff: string): string {
-  const diffSnippet = compressDiff(diff)
-  return `あなたはGitコミットを分析する専門家です。以下のコミット情報を分析し、JSON形式のみで回答してください。
+const SYSTEM_PROMPT = `You are a Git commit analyzer. Respond with ONLY valid JSON — no markdown fences, no explanation.
+All string values must be in Japanese.
 
-## コミットメッセージ
-${commitMessage}
-
-## コード差分
-${diffSnippet || '(差分なし)'}
-
-## 出力形式
-以下のJSONのみを出力してください。余分なテキストや\`\`\`は不要です。
-
+Output this exact structure:
 {
-  "simplified_message": "プログラミング知識がない人向けに1〜2文で何をしたか説明",
-  "code_explanation": "どのファイルで何が変わり、ユーザーや機能にどう影響するか2〜4文で説明",
-  "quality_score": 75,
-  "quality_feedback": "50文字以内のフィードバック",
-  "categories": ["カテゴリ1"]
+  "simplified_message": string,  // 1-2 sentences for non-programmers
+  "code_explanation": string,    // 2-4 sentences on which files changed and user/feature impact
+  "quality_score": number,       // 0-100 integer rating commit message clarity
+  "quality_feedback": string,    // actionable feedback on the commit message, 50 chars or less
+  "categories": string[]         // 1-3 items from: フロントエンド, バックエンド, インフラ, テスト, ドキュメント, 設定, リファクタリング, バグ修正
+}`
+
+function buildUserPrompt(commitMessage: string, diff: string): string {
+  const diffSnippet = compressDiff(diff)
+  return `コミットメッセージ: ${commitMessage}
+
+差分:
+${diffSnippet || '(差分なし)'}`
 }
 
-categoriesはフロントエンド/バックエンド/インフラ/テスト/ドキュメント/設定/リファクタリング/バグ修正から最大3つ選んでください。`
-}
-
-async function generate(prompt: string, retries = 2): Promise<string> {
+async function generate(userPrompt: string, retries = 2): Promise<string> {
   for (let i = 0; i < retries; i++) {
     try {
       const result = await groq.chat.completions.create({
         model: MODEL,
-        messages: [{ role: 'user', content: prompt }],
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: userPrompt },
+        ],
         temperature: 0.3,
         max_tokens: 400,
       })
@@ -87,7 +86,7 @@ export async function generateSummary(
   diff: string
 ): Promise<CommitSummary | { error: SummaryError } | null> {
   try {
-    const raw = await generate(buildCombinedPrompt(commitMessage, diff))
+    const raw = await generate(buildUserPrompt(commitMessage, diff))
     const json = JSON.parse(raw.replace(/```json|```/g, '').trim())
 
     return {
