@@ -401,6 +401,29 @@ export default function ProfilePage() {
           </div>
         </div>
       </section>
+
+      {/* アカウント削除 */}
+      <section>
+        <h2 className="text-sm font-semibold text-red-500 mb-1">危険な操作</h2>
+        <p className="text-xs text-gray-400 mb-3">この操作は取り消せません。慎重に行ってください。</p>
+        <div className="bg-white border border-red-100 rounded-xl p-5 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-800">アカウントを削除する</p>
+            <p className="text-xs text-gray-400 mt-0.5">登録したリポジトリや招待したメンバー情報もすべて削除されます</p>
+          </div>
+          <button
+            onClick={async () => {
+              if (!confirm('本当にアカウントを削除しますか？\nこの操作は取り消せません。')) return
+              if (!confirm('最終確認：すべてのデータが削除されます。実行しますか？')) return
+              await fetch('/api/user/delete', { method: 'DELETE' })
+              window.location.href = '/'
+            }}
+            className="text-sm font-medium text-red-500 border border-red-200 px-4 py-2 rounded-lg hover:bg-red-50 transition-colors"
+          >
+            削除する
+          </button>
+        </div>
+      </section>
     </div>
   )
 }
