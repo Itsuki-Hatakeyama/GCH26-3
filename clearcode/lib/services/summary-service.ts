@@ -1,15 +1,19 @@
 import Groq from 'groq-sdk'
+import { GoogleGenerativeAI } from '@google/generative-ai'
+import OpenAI from 'openai'
 import type { ChangeCategory } from '@/lib/prompts/categorize-change'
+import type { AIProvider } from '@/lib/services/ai-config'
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
-const MODEL = 'llama-3.3-70b-versatile'
+const GROQ_MODEL = 'llama-3.3-70b-versatile'
+const GEMINI_MODEL = 'gemini-2.0-flash'
+const OPENAI_MODEL = 'gpt-4o-mini'
 
 function compressDiff(diff: string): string {
   if (!diff) return ''
 
   const lines = diff.split('\n')
 
-  // 変更ファイル名を先頭に列挙
   const fileNames = lines
     .filter((l) => l.startsWith('diff --git'))
     .map((l) => l.replace('diff --git a/', '').split(' b/')[0])
@@ -96,12 +100,12 @@ function buildUserPrompt(commitMessage: string, diff: string): string {
 ${compressDiff(diff) || '(差分なし)'}`
 }
 
-async function generate(userPrompt: string, retries = 2, apiKey?: string): Promise<string> {
+async function generateWithGroq(userPrompt: string, apiKey?: string): Promise<string> {
   const client = apiKey ? new Groq({ apiKey }) : groq
-  for (let i = 0; i < retries; i++) {
+  for (let i = 0; i < 2; i++) {
     try {
       const result = await client.chat.completions.create({
-        model: MODEL,
+        model: GROQ_MODEL,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: userPrompt },
@@ -113,19 +117,72 @@ async function generate(userPrompt: string, retries = 2, apiKey?: string): Promi
       return result.choices[0].message.content?.trim() ?? ''
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
-      console.error('[Groq raw error]', msg)
-
       if (msg.includes('429') || msg.includes('rate_limit')) {
-        if (i < retries - 1) {
-          await new Promise((r) => setTimeout(r, 10_000))
-          continue
-        }
+        if (i < 1) { await new Promise((r) => setTimeout(r, 10_000)); continue }
         throw new Error('QUOTA_EXCEEDED_DAILY')
       }
       throw err
     }
   }
   throw new Error('Groq generate failed after retries')
+}
+
+async function generateWithGemini(userPrompt: string, apiKey: string): Promise<string> {
+  const genAI = new GoogleGenerativeAI(apiKey)
+  const model = genAI.getGenerativeModel({
+    model: GEMINI_MODEL,
+    systemInstruction: SYSTEM_PROMPT,
+    generationConfig: {
+      responseMimeType: 'application/json',
+      temperature: 0.1,
+      maxOutputTokens: 700,
+    },
+  })
+  try {
+    const result = await model.generateContent(userPrompt)
+    return result.response.text().trim()
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    if (msg.includes('429') || msg.includes('quota')) throw new Error('QUOTA_EXCEEDED_DAILY')
+    if (msg.includes('401') || msg.includes('API_KEY_INVALID')) throw new Error('AUTH_ERROR')
+    throw err
+  }
+}
+
+async function generateWithOpenAI(userPrompt: string, apiKey: string): Promise<string> {
+  const client = new OpenAI({ apiKey })
+  try {
+    const result = await client.chat.completions.create({
+      model: OPENAI_MODEL,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.1,
+      max_tokens: 700,
+      response_format: { type: 'json_object' },
+    })
+    return result.choices[0].message.content?.trim() ?? ''
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    if (msg.includes('429') || msg.includes('rate_limit')) throw new Error('QUOTA_EXCEEDED_DAILY')
+    if (msg.includes('401') || msg.includes('invalid_api_key')) throw new Error('AUTH_ERROR')
+    throw err
+  }
+}
+
+async function generate(userPrompt: string, provider: AIProvider, apiKey?: string): Promise<string> {
+  switch (provider) {
+    case 'gemini':
+      if (!apiKey) throw new Error('Gemini APIキーが設定されていません')
+      return generateWithGemini(userPrompt, apiKey)
+    case 'openai':
+      if (!apiKey) throw new Error('OpenAI APIキーが設定されていません')
+      return generateWithOpenAI(userPrompt, apiKey)
+    case 'groq':
+    default:
+      return generateWithGroq(userPrompt, apiKey)
+  }
 }
 
 export interface CommitSummary {
@@ -141,10 +198,11 @@ export type SummaryError = 'QUOTA_EXCEEDED' | 'AUTH_ERROR' | 'UNKNOWN'
 export async function generateSummary(
   commitMessage: string,
   diff: string,
+  provider: AIProvider = 'groq',
   userApiKey?: string
 ): Promise<CommitSummary | { error: SummaryError } | null> {
   try {
-    const raw = await generate(buildUserPrompt(commitMessage, diff), 2, userApiKey)
+    const raw = await generate(buildUserPrompt(commitMessage, diff), provider, userApiKey)
     const json = JSON.parse(raw)
 
     const terms = Array.isArray(json.technical_terms)
@@ -167,14 +225,14 @@ export async function generateSummary(
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
     if (msg === 'QUOTA_EXCEEDED_DAILY') {
-      console.warn('Groqレート制限。要約をスキップします。')
+      console.warn('レート制限。要約をスキップします。')
       return { error: 'QUOTA_EXCEEDED' }
     }
-    if (msg.includes('401') || msg.includes('invalid_api_key')) {
-      console.error('Groq APIキーが無効です:', msg)
+    if (msg === 'AUTH_ERROR' || msg.includes('401') || msg.includes('invalid_api_key') || msg.includes('API_KEY_INVALID')) {
+      console.error('APIキーが無効です:', msg)
       return { error: 'AUTH_ERROR' }
     }
-    console.error('Groq要約生成エラー:', msg)
+    console.error('要約生成エラー:', msg)
     return { error: 'UNKNOWN' }
   }
 }

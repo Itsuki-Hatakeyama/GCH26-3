@@ -3,7 +3,7 @@ import { github } from '@/lib/github'
 import { decrypt } from '@/lib/crypto'
 import { generateSummary } from '@/lib/services/summary-service'
 import { sendCommitNotification } from '@/lib/services/notification-service'
-import { getUserGroqApiKey } from '@/app/api/settings/groq-key/route'
+import { getUserAIConfig } from '@/lib/services/ai-config'
 
 interface RawCommit {
   id: string
@@ -61,8 +61,8 @@ export async function processCommit(repositoryId: string, rawCommit: RawCommit):
     .single()
 
   const diff = await github.getCommitDiff(accessToken, repo.owner, repo.name, rawCommit.sha)
-  const userApiKey = existingSummary ? undefined : await getUserGroqApiKey(repo.user_id)
-  const summaryResult = existingSummary ? null : await generateSummary(rawCommit.message, diff, userApiKey)
+  const { provider, apiKey } = existingSummary ? { provider: 'groq' as const, apiKey: undefined } : await getUserAIConfig(repo.user_id)
+  const summaryResult = existingSummary ? null : await generateSummary(rawCommit.message, diff, provider, apiKey)
   const summary = summaryResult && !('error' in summaryResult) ? summaryResult : null
 
   if (summary) {

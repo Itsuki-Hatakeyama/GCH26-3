@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { User } from '@/types/database'
-import GroqKeySettings from '@/components/GroqKeySettings'
+import AiProviderSettings from '@/components/AiProviderSettings'
 
 type SlackMethod = 'oauth' | 'bottoken'
 
@@ -73,7 +73,7 @@ export default function ProfilePage() {
         <h2 className="text-sm font-semibold text-gray-700 mb-1">Groq API キー</h2>
         <p className="text-xs text-gray-400 mb-3">設定すると要約生成のレート制限があなた専用になります</p>
         <div className="bg-white border border-gray-100 rounded-xl p-5">
-          <GroqKeySettings />
+          <AiProviderSettings />
         </div>
       </section>
 
