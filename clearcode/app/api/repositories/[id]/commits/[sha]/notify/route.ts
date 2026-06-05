@@ -4,6 +4,7 @@ import { getSession } from '@/lib/auth'
 import { sendCommitNotification } from '@/lib/services/notification-service'
 import { github } from '@/lib/github'
 import { decrypt } from '@/lib/crypto'
+import { query } from '@/lib/db'
 
 function supabase() {
   return createClient(
@@ -120,8 +121,21 @@ export async function POST(
     : commit.commit_summaries ? [commit.commit_summaries] : []
   const summary = summaries[0] ?? null
 
+  // Bot Tokenモード（access_token_encryptedが空）のとき、リポジトリオーナーのユーザートークンを使用
+  let resolvedAccessToken = slack.access_token_encrypted
+  if (!resolvedAccessToken) {
+    const ownerResult = await query<{ slack_bot_token_encrypted: string | null }>(
+      'SELECT slack_bot_token_encrypted FROM users WHERE id = $1',
+      [repo.user_id]
+    )
+    const ownerToken = ownerResult.rows[0]?.slack_bot_token_encrypted
+    if (ownerToken) {
+      resolvedAccessToken = ownerToken
+    }
+  }
+
   await sendCommitNotification({
-    accessTokenEncrypted: slack.access_token_encrypted,
+    accessTokenEncrypted: resolvedAccessToken,
     channelId: slack.channel_id,
     repoName: repo.name,
     commitSha: commit.sha,

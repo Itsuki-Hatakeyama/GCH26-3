@@ -62,6 +62,9 @@ export async function GET(
   if (integration) {
     const accessToken = await decrypt(integration.access_token_encrypted)
     diff = await github.getCommitDiff(accessToken, repo.owner, repo.name, sha)
+    console.log('[diff] length:', diff.length, 'sha:', sha.slice(0, 7))
+  } else {
+    console.log('[diff] no integration found for user_id:', repo.user_id)
   }
 
   return NextResponse.json({ commit, diff, repo: { name: repo.name, full_name: repo.full_name } })

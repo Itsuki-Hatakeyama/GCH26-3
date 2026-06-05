@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getChannels } from '@/lib/slack'
 import { decrypt } from '@/lib/crypto'
+import { query } from '@/lib/db'
 
 export async function GET(req: NextRequest) {
   const session = await getSession()
@@ -12,11 +13,22 @@ export async function GET(req: NextRequest) {
 
   const repositoryId = req.nextUrl.searchParams.get('repository_id')
 
-  // Bot Tokenモード: repository_idなしで環境変数のSLACK_BOT_TOKENを使用
+  // Bot Tokenモード: ユーザーの保存済みトークン → 環境変数の順で使用
   if (!repositoryId) {
-    const botToken = process.env.SLACK_BOT_TOKEN
+    const userResult = await query<{ slack_bot_token_encrypted: string | null }>(
+      'SELECT slack_bot_token_encrypted FROM users WHERE id = $1',
+      [session.user_id]
+    )
+    const userTokenEncrypted = userResult.rows[0]?.slack_bot_token_encrypted
+    const botToken = userTokenEncrypted
+      ? await decrypt(userTokenEncrypted)
+      : process.env.SLACK_BOT_TOKEN
+
     if (!botToken) {
-      return NextResponse.json({ error: { code: 'TOKEN_MISSING', message: 'SLACK_BOT_TOKENが設定されていません' } }, { status: 400 })
+      return NextResponse.json(
+        { error: { code: 'TOKEN_MISSING', message: 'Slack Bot Tokenが設定されていません。プロフィールで設定してください。' } },
+        { status: 400 }
+      )
     }
     const allChannels = await getChannels(botToken)
     const channels = allChannels
