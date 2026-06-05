@@ -52,9 +52,15 @@ export async function processCommit(repositoryId: string, rawCommit: RawCommit):
 
   if (insertError || !commit) return
 
-  // diff取得 + Gemini要約（クォータ超過時はnull）
+  // 既存の要約があればAPI呼び出しをスキップ
+  const { data: existingSummary } = await supabaseAdmin
+    .from('commit_summaries')
+    .select('commit_id')
+    .eq('commit_id', commit.id)
+    .single()
+
   const diff = await github.getCommitDiff(accessToken, repo.owner, repo.name, rawCommit.sha)
-  const summaryResult = await generateSummary(rawCommit.message, diff)
+  const summaryResult = existingSummary ? null : await generateSummary(rawCommit.message, diff)
   const summary = summaryResult && !('error' in summaryResult) ? summaryResult : null
 
   if (summary) {

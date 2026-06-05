@@ -2,7 +2,7 @@ import Groq from 'groq-sdk'
 import type { ChangeCategory } from '@/lib/prompts/categorize-change'
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
-const MODEL = 'llama-3.3-70b-versatile'
+const MODEL = 'llama-3.1-8b-instant'
 
 function compressDiff(diff: string): string {
   if (!diff || diff.length <= 1000) return diff
@@ -52,6 +52,7 @@ async function generate(prompt: string, retries = 2): Promise<string> {
         model: MODEL,
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.3,
+        max_tokens: 400,
       })
       return result.choices[0].message.content?.trim() ?? ''
     } catch (err: unknown) {
