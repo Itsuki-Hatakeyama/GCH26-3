@@ -38,7 +38,7 @@ export default function TestSlackPage() {
       } else {
         setResult({ success: false, message: data.error || 'エラーが発生しました' });
       }
-    } catch (error) {
+    } catch {
       setResult({ success: false, message: 'ネットワークエラーが発生しました' });
     } finally {
       setLoading(false);

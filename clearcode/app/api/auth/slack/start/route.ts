@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   // ユーザーの OAuth 資格情報を優先、なければ環境変数
   const session = await getSession()
   let clientId = process.env.SLACK_CLIENT_ID!
-  let redirectUri = process.env.SLACK_REDIRECT_URI!
+  const redirectUri = process.env.SLACK_REDIRECT_URI!
 
   if (session) {
     const result = await query<{ slack_client_id: string | null }>(
