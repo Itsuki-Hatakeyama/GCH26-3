@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { ExternalLink, Copy, Check, RefreshCw, Send, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -118,6 +118,62 @@ const EXT_BADGE: Record<string, { bg: string; text: string }> = {
 }
 const EXT_BADGE_DEFAULT = { bg: "bg-neutral-700", text: "text-neutral-400" }
 
+function ImageUpload({
+  value,
+  onChange,
+  label,
+}: {
+  value: string | null
+  onChange: (v: string | null) => void
+  label: string
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => onChange(reader.result as string)
+    reader.readAsDataURL(file)
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs font-medium text-neutral-500">{label}</p>
+      {value ? (
+        <div className="relative">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={value}
+            alt={label}
+            className="rounded-lg border border-neutral-200 w-full object-contain max-h-48 bg-neutral-50"
+          />
+          <button
+            onClick={() => {
+              onChange(null)
+              if (inputRef.current) inputRef.current.value = ""
+            }}
+            className="absolute top-1 right-1 bg-white/90 rounded-full w-5 h-5 flex items-center justify-center text-neutral-500 hover:text-red-500 text-xs border border-neutral-200 transition-colors"
+          >
+            ✕
+          </button>
+        </div>
+      ) : (
+        <label className="flex flex-col items-center justify-center border-2 border-dashed border-neutral-200 rounded-lg p-4 cursor-pointer hover:border-neutral-400 hover:bg-neutral-50 transition-colors">
+          <span className="text-xs text-neutral-400">クリックして画像を選択</span>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleChange}
+          />
+        </label>
+      )}
+    </div>
+  )
+}
+
 function DiffFileBlock({ file }: { file: DiffFile }) {
   const [collapsed, setCollapsed] = useState(false)
   const ext = file.filename.split(".").pop()?.toLowerCase() ?? ""
@@ -224,6 +280,8 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
   const [regenerated, setRegenerated] = useState(false);
   const [notifying, setNotifying] = useState(false);
   const [notifyResult, setNotifyResult] = useState<string | null>(null);
+  const [beforeImage, setBeforeImage] = useState<string | null>(null);
+  const [afterImage, setAfterImage] = useState<string | null>(null);
 
   const fetchCommit = useCallback(async () => {
     const [commitRes, diffRes] = await Promise.all([
@@ -279,6 +337,11 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
     try {
       const res = await fetch(`/api/repositories/${repositoryId}/commits/${sha}/notify`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          beforeImage: beforeImage ?? undefined,
+          afterImage: afterImage ?? undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -445,17 +508,28 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
             )}
 
             {activeTab === "visual" && (
-              <div className="p-6">
+              <div className="p-6 space-y-5">
                 {s.frontend_changes ? (
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-purple-700 mb-2">画面の変化</p>
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-purple-700">画面の変化</p>
                     <p className="text-sm text-gray-700 leading-relaxed">{s.frontend_changes}</p>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center h-24">
-                    <p className="text-sm text-neutral-400">このコミットに画面の変更はありません</p>
-                  </div>
+                  <p className="text-sm text-neutral-400">このコミットに画面の変更はありません</p>
                 )}
+
+                <div className="border-t border-neutral-100 pt-4 space-y-3">
+                  <p className="text-xs font-semibold text-neutral-600">スクリーンショット（Slack送信時に添付されます）</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <ImageUpload value={beforeImage} onChange={setBeforeImage} label="変更前" />
+                    <ImageUpload value={afterImage} onChange={setAfterImage} label="変更後" />
+                  </div>
+                  {(beforeImage || afterImage) && (
+                    <p className="text-xs text-green-600">
+                      画像がセットされました。「Slackに送信」で一緒に送信されます。
+                    </p>
+                  )}
+                </div>
               </div>
             )}
 
@@ -470,11 +544,37 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
                 {diffFiles.length === 0 ? (
                   <div className="py-8 text-center text-sm text-neutral-400">差分データがありません</div>
                 ) : (
-                  <div className="space-y-3">
-                    {diffFiles.map((file) => (
-                      <DiffFileBlock key={file.filename} file={file} />
-                    ))}
-                  </div>
+                  <>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs text-neutral-400">{diffFiles.length}ファイルの変更</span>
+                      <div className="flex items-center gap-2">
+                        {notifyResult && (
+                          <span className={`text-xs px-3 py-1 rounded-full ${
+                            notifyResult.includes("送信しました")
+                              ? "bg-green-100 text-green-700"
+                              : "bg-red-100 text-red-700"
+                          }`}>
+                            {notifyResult}
+                          </span>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-full gap-1.5 text-xs"
+                          onClick={handleNotifySlack}
+                          disabled={notifying}
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          {notifying ? "送信中..." : "Slackに送信"}
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      {diffFiles.map((file) => (
+                        <DiffFileBlock key={file.filename} file={file} />
+                      ))}
+                    </div>
+                  </>
                 )}
               </div>
             )}

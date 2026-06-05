@@ -54,7 +54,8 @@ export async function processCommit(repositoryId: string, rawCommit: RawCommit):
 
   // diff取得 + Gemini要約（クォータ超過時はnull）
   const diff = await github.getCommitDiff(accessToken, repo.owner, repo.name, rawCommit.sha)
-  const summary = await generateSummary(rawCommit.message, diff)
+  const summaryResult = await generateSummary(rawCommit.message, diff)
+  const summary = summaryResult && !('error' in summaryResult) ? summaryResult : null
 
   if (summary) {
     await supabaseAdmin.from('commit_summaries').upsert(
@@ -90,6 +91,7 @@ export async function processCommit(repositoryId: string, rawCommit: RawCommit):
       simplifiedMessage,
       codeExplanation,
       commitUrl: rawCommit.url,
+      diff: diff || undefined,
     })
   }
 }
