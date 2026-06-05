@@ -409,7 +409,7 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
           disabled={regenerating}
         >
           <RefreshCw className={`w-4 h-4 ${regenerating ? "animate-spin" : ""}`} />
-          {regenerating ? "生成中..." : regenerated ? "再生成しました" : "要約を再生成"}
+          {regenerating ? "生成中..." : regenerated ? "生成しました" : "要約を生成"}
         </Button>
 
         <Button
