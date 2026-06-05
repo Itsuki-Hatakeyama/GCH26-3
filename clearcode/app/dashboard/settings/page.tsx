@@ -57,6 +57,30 @@ export default function SettingsPage() {
           <Row label="対象" value="エンジニア（GitHub アカウント保持者）" />
           <Row label="ページ" value="ダッシュボード → リポジトリ追加" />
         </InfoBox>
+        <div className="rounded-xl border border-blue-100 dark:border-blue-900/40 overflow-hidden">
+          <div className="bg-blue-50 dark:bg-blue-900/20 px-4 py-2.5 border-b border-blue-100 dark:border-blue-900/40">
+            <p className="text-xs font-semibold text-blue-700 dark:text-blue-400">🔧 GitHub OAuth App の作成と設定（各自で実施）</p>
+          </div>
+          <div className="px-4 py-3 space-y-2">
+            <p className="text-xs text-gray-500 dark:text-neutral-400">
+              GitHub 連携を使うには、自分の GitHub OAuth App を作成してプロフィールに登録する必要があります。
+            </p>
+            <ol className="space-y-2">
+              {([
+                'github.com/settings/developers → New OAuth App をクリック',
+                'Application name: Clearcode\nHomepage URL: https://gch-26-3.vercel.app\nAuthorization callback URL: https://gch-26-3.vercel.app/api/auth/github/callback\nを入力して Register application を押す',
+                'Client ID をコピー',
+                'Generate a new client secret → Client Secret をコピー',
+                'プロフィール画面の「GitHub OAuth 資格情報」に Client ID と Client Secret を入力して保存',
+              ] as string[]).map((item, i) => (
+                <li key={i} className="flex gap-3 text-xs text-gray-500 dark:text-neutral-400">
+                  <span className="shrink-0 w-4 h-4 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 text-xs font-semibold flex items-center justify-center">{i + 1}</span>
+                  <span className="whitespace-pre-line">{item}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </div>
         <Note>非エンジニアは GitHub アカウントがなくても Clearcode を利用できます。</Note>
       </Step>
 

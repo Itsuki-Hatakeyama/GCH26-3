@@ -13,6 +13,8 @@ export default function ProfilePage() {
     has_slack_bot_token?: boolean
     slack_client_id?: string | null
     has_slack_client_secret?: boolean
+    github_client_id?: string | null
+    has_github_client_secret?: boolean
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [slackMethod, setSlackMethod] = useState<SlackMethod>('oauth')
@@ -22,6 +24,11 @@ export default function ProfilePage() {
   const [slackTokenSaving, setSlackTokenSaving] = useState(false)
   const [slackTokenSaved, setSlackTokenSaved] = useState(false)
   const [slackTokenError, setSlackTokenError] = useState<string | null>(null)
+  const [githubClientId, setGithubClientId] = useState('')
+  const [githubClientSecret, setGithubClientSecret] = useState('')
+  const [githubSaving, setGithubSaving] = useState(false)
+  const [githubSaved, setGithubSaved] = useState(false)
+  const [githubError, setGithubError] = useState<string | null>(null)
   const [oauthClientId, setOauthClientId] = useState('')
   const [oauthClientSecret, setOauthClientSecret] = useState('')
   const [oauthSaving, setOauthSaving] = useState(false)
@@ -93,6 +100,36 @@ export default function ProfilePage() {
     } finally {
       setOauthSaving(false)
     }
+  }
+
+  const saveGithubCredentials = async () => {
+    setGithubSaving(true)
+    setGithubError(null)
+    try {
+      const res = await fetch('/api/user/github-credentials', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: githubClientId, client_secret: githubClientSecret }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setGithubError(data.error?.message ?? '保存に失敗しました')
+        return
+      }
+      setUser((u) => u ? { ...u, github_client_id: githubClientId, has_github_client_secret: true } : u)
+      setGithubClientId('')
+      setGithubClientSecret('')
+      setGithubSaved(true)
+      setTimeout(() => setGithubSaved(false), 2000)
+    } finally {
+      setGithubSaving(false)
+    }
+  }
+
+  const deleteGithubCredentials = async () => {
+    if (!confirm('保存済みの GitHub OAuth 資格情報を削除しますか？')) return
+    await fetch('/api/user/github-credentials', { method: 'DELETE' })
+    setUser((u) => u ? { ...u, github_client_id: null, has_github_client_secret: false } : u)
   }
 
   const deleteOauthCredentials = async () => {
@@ -172,6 +209,82 @@ export default function ProfilePage() {
               <span className="text-sm text-gray-800 font-mono break-all">{value}</span>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* GitHub OAuth 資格情報 */}
+      <section>
+        <h2 className="text-sm font-semibold text-gray-700 mb-1">GitHub OAuth 資格情報</h2>
+        <p className="text-xs text-gray-400 mb-3">
+          GitHub 連携に使用する Client ID と Client Secret を設定します。未設定の場合は管理者のデフォルト設定が使われます。
+        </p>
+        <div className="bg-white border border-gray-100 rounded-xl p-5 space-y-4">
+          {user?.github_client_id && user?.has_github_client_secret && (
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+              <div>
+                <p className="text-sm font-medium text-gray-800">GitHub OAuth 資格情報 設定済み</p>
+                <p className="text-xs text-gray-400 mt-0.5 font-mono">{user.github_client_id}</p>
+              </div>
+              <button
+                onClick={deleteGithubCredentials}
+                className="text-xs text-red-400 hover:text-red-600 underline"
+              >
+                削除する
+              </button>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Client ID</label>
+              <input
+                type="text"
+                placeholder="Ov23li..."
+                value={githubClientId}
+                onChange={(e) => { setGithubClientId(e.target.value); setGithubError(null) }}
+                className="w-full border border-neutral-200 rounded-lg px-4 py-2 text-sm outline-none focus:border-neutral-400 font-mono"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Client Secret</label>
+              <input
+                type="password"
+                placeholder="••••••••••••••••••••••••••••••••••••••••"
+                value={githubClientSecret}
+                onChange={(e) => { setGithubClientSecret(e.target.value); setGithubError(null) }}
+                className="w-full border border-neutral-200 rounded-lg px-4 py-2 text-sm outline-none focus:border-neutral-400 font-mono"
+              />
+            </div>
+          </div>
+
+          {githubError && <p className="text-xs text-red-500">{githubError}</p>}
+
+          <div className="flex items-center justify-between pt-1">
+            <p className="text-xs text-gray-400">
+              <a href="https://github.com/settings/developers" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                github.com/settings/developers
+              </a>{' '}
+              で OAuth App を作成して取得できます
+            </p>
+            <div className="flex items-center gap-3">
+              {githubSaved && <span className="text-xs text-gray-400">保存しました</span>}
+              <button
+                onClick={saveGithubCredentials}
+                disabled={githubSaving || !githubClientId || !githubClientSecret}
+                className="bg-gray-900 text-white text-sm font-medium px-5 py-2 rounded-lg hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                {githubSaving ? '保存中...' : user?.github_client_id ? '更新する' : '保存する'}
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-500 space-y-1">
+            <p className="font-medium text-gray-600">GitHub OAuth App の設定で必要な項目</p>
+            <p>• Authorization callback URL に以下を登録：</p>
+            <p className="font-mono bg-white border border-gray-200 rounded px-2 py-1 break-all">
+              {typeof window !== 'undefined' ? window.location.origin : ''}/api/auth/github/callback
+            </p>
+          </div>
         </div>
       </section>
 
