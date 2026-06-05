@@ -34,7 +34,9 @@ export async function GET() {
     memberRepos = data ?? []
   }
 
-  const repos = [...(ownedRepos ?? []), ...memberRepos]
+  const ownedWithFlag = (ownedRepos ?? []).map((r) => ({ ...r, is_owner: true }))
+  const memberWithFlag = memberRepos.map((r) => ({ ...r, is_owner: false }))
+  const repos = [...ownedWithFlag, ...memberWithFlag]
   if (repos.length === 0) return NextResponse.json({ repositories: [] })
 
   // 未読コミット数を付加
