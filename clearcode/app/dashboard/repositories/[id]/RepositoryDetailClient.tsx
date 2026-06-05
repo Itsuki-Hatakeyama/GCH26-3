@@ -129,7 +129,6 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [members, setMembers] = useState<RepositoryMember[]>([]);
-  const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
@@ -230,8 +229,8 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
   }, [id, fetchRepo, syncAndFetchPage]);
 
   useEffect(() => {
-    if (repo?.is_owner) fetchMembers();
-  }, [repo?.is_owner, fetchMembers]);
+    if (repo) fetchMembers();
+  }, [repo, fetchMembers]);
 
   // 30秒ポーリング（DBのみ、GitHub不要）
   useEffect(() => {
@@ -382,74 +381,84 @@ export default function RepositoryDetailClient({ id }: { id: string }) {
             <RefreshCw className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
             更新
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 rounded-full text-xs text-red-500 hover:text-red-600 hover:border-red-300"
-            onClick={handleDelete}
-          >
-            <Trash2 className="w-3 h-3" />
-            削除
-          </Button>
           {repo.is_owner && (
             <Button
               variant="outline"
               size="sm"
-              className="gap-1.5 rounded-full text-xs"
-              onClick={() => setShowInvite((v) => !v)}
+              className="gap-1.5 rounded-full text-xs text-red-500 hover:text-red-600 hover:border-red-300"
+              onClick={handleDelete}
             >
-              <UserPlus className="w-3 h-3" />
-              メンバー招待
+              <Trash2 className="w-3 h-3" />
+              削除
             </Button>
           )}
         </div>
       </div>
 
-      {/* メンバー管理パネル */}
-      {repo.is_owner && showInvite && (
-        <div className="border border-neutral-200 rounded-xl p-4 space-y-4">
-          <h2 className="text-sm font-semibold text-neutral-900">メンバー管理</h2>
+      {/* メンバーセクション */}
+      <div className="border border-neutral-100 rounded-xl p-4 space-y-3 bg-white">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-neutral-900 flex items-center gap-1.5">
+            <UserPlus className="w-3.5 h-3.5 text-neutral-400" />
+            メンバー
+            {members.length > 0 && (
+              <span className="text-xs font-normal text-neutral-400">({members.length}人)</span>
+            )}
+          </h2>
+        </div>
 
+        {/* オーナーのみ招待フォームを表示 */}
+        {repo.is_owner && (
           <form onSubmit={handleInvite} className="flex gap-2">
             <input
               type="email"
               value={inviteEmail}
               onChange={(e) => setInviteEmail(e.target.value)}
-              placeholder="招待するメールアドレス"
+              placeholder="メールアドレスで招待..."
               required
               className="flex-1 text-xs border border-neutral-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-neutral-300"
             />
-            <Button type="submit" size="sm" className="rounded-lg text-xs" disabled={inviteLoading}>
-              {inviteLoading ? "送信中..." : "招待する"}
+            <Button type="submit" size="sm" className="rounded-lg text-xs shrink-0" disabled={inviteLoading}>
+              {inviteLoading ? "送信中..." : "招待"}
             </Button>
           </form>
-          {inviteError && <p className="text-xs text-red-500">{inviteError}</p>}
+        )}
+        {inviteError && <p className="text-xs text-red-500">{inviteError}</p>}
 
-          {members.length > 0 && (
-            <ul className="space-y-2">
-              {members.map((m) => (
-                <li key={m.id} className="flex items-center justify-between text-xs text-neutral-700">
-                  <span>
-                    {m.email}
-                    <span className={`ml-2 px-1.5 py-0.5 rounded-full text-[10px] ${m.status === "active" ? "bg-green-100 text-green-700" : "bg-neutral-100 text-neutral-500"}`}>
-                      {m.status === "active" ? "登録済み" : "招待中"}
-                    </span>
-                  </span>
-                  <button
-                    onClick={() => handleRemoveMember(m.id)}
-                    className="text-neutral-400 hover:text-red-500 transition-colors"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+        {/* オーナー行（常に先頭に表示） */}
+        <ul className="space-y-1.5">
+          <li className="flex items-center justify-between text-xs py-1.5 px-2 rounded-lg bg-neutral-50">
+            <span className="flex items-center gap-2 min-w-0">
+              <span className="text-neutral-700 truncate">{repo.full_name.split("/")[0]}</span>
+              <span className="shrink-0 px-1.5 py-0.5 rounded-full text-[10px] bg-blue-50 text-blue-700">オーナー</span>
+            </span>
+          </li>
+          {members.map((m) => (
+            <li key={m.id} className="flex items-center justify-between text-xs py-1.5 px-2 rounded-lg hover:bg-neutral-50 transition-colors">
+              <span className="flex items-center gap-2 min-w-0">
+                <span className="text-neutral-700 truncate">{m.email}</span>
+                <span className={`shrink-0 px-1.5 py-0.5 rounded-full text-[10px] ${
+                  m.status === "active" ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"
+                }`}>
+                  {m.status === "active" ? "参加済み" : "招待中"}
+                </span>
+              </span>
+              {repo.is_owner && (
+                <button
+                  onClick={() => handleRemoveMember(m.id)}
+                  className="shrink-0 ml-2 text-neutral-300 hover:text-red-500 transition-colors"
+                  title="削除"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </li>
+          ))}
           {members.length === 0 && (
-            <p className="text-xs text-neutral-400">まだメンバーがいません</p>
+            <li className="text-xs text-neutral-400 px-2 py-1">まだメンバーがいません</li>
           )}
-        </div>
-      )}
+        </ul>
+      </div>
 
       {/* ブランチフィルター */}
       {branches.length > 0 && (

@@ -22,9 +22,31 @@ export async function GET(
 
   const { id } = await params
 
-  const owner = await getOwnerRepo(id, session.user_id)
-  if (!owner) {
-    return NextResponse.json({ error: { code: 'FORBIDDEN', message: '権限がありません' } }, { status: 403 })
+  // オーナーまたはアクティブメンバーなら閲覧可能
+  const { data: repo } = await supabaseAdmin
+    .from('repositories')
+    .select('user_id')
+    .eq('id', id)
+    .single()
+
+  if (!repo) {
+    return NextResponse.json({ error: { code: 'NOT_FOUND', message: 'リポジトリが見つかりません' } }, { status: 404 })
+  }
+
+  const isOwner = repo.user_id === session.user_id
+
+  if (!isOwner) {
+    const { data: membership } = await supabaseAdmin
+      .from('repository_members')
+      .select('id')
+      .eq('repository_id', id)
+      .eq('user_id', session.user_id)
+      .eq('status', 'active')
+      .single()
+
+    if (!membership) {
+      return NextResponse.json({ error: { code: 'FORBIDDEN', message: '権限がありません' } }, { status: 403 })
+    }
   }
 
   const { data: members } = await supabaseAdmin
