@@ -53,6 +53,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(redirectPath, request.url))
   } catch (error) {
     console.error('Slack OAuth error:', error)
-    return NextResponse.redirect(new URL('/dashboard?slack_error=oauth_failed', request.url))
+    const errMsg = error instanceof Error ? error.message : 'oauth_failed'
+    const state = request.nextUrl.searchParams.get('state')
+    const dest = state
+      ? `/dashboard/repositories/${state}/slack?error=${encodeURIComponent(errMsg)}`
+      : `/dashboard?slack_error=${encodeURIComponent(errMsg)}`
+    return NextResponse.redirect(new URL(dest, request.url))
   }
 }

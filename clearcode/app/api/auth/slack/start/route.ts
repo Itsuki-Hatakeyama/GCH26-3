@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   // Slack認証ページのURLを作成
   const slackAuthUrl = new URL('https://slack.com/oauth/v2/authorize');
   slackAuthUrl.searchParams.set('client_id', process.env.SLACK_CLIENT_ID!);
-  slackAuthUrl.searchParams.set('scope', 'chat:write,channels:read');
+  slackAuthUrl.searchParams.set('scope', 'chat:write,channels:read,files:write');
   slackAuthUrl.searchParams.set('redirect_uri', process.env.SLACK_REDIRECT_URI!);
   slackAuthUrl.searchParams.set('state', repository_id);
 
