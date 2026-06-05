@@ -301,9 +301,6 @@ export default function CommitCard({ commit, isUnread = false, selectedBranch, d
 
       {/* フッター */}
       <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
-        {s?.message_quality_score != null && (
-          <QualityScore score={s.message_quality_score} />
-        )}
         <Link href={detailHref}>
           <Button variant="outline" size="sm" className="rounded-full text-xs h-7 px-3">
             詳細を見る

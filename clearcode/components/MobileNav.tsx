@@ -8,7 +8,7 @@ import LogoutButton from "@/components/LogoutButton";
 const navItems = [
   { href: "/dashboard", label: "ホーム" },
   { href: "/dashboard/connect-github", label: "リポジトリ追加" },
-  { href: "/dashboard/settings", label: "設定" },
+  { href: "/dashboard/settings", label: "使用手順" },
   { href: "/dashboard/profile", label: "プロフィール" },
 ];
 
