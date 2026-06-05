@@ -25,7 +25,9 @@
       "Bash(node test2.js)",
       "Bash(mkdir -p /Users/yugo_suzuki/GCH26-3/GCH26-3/clearcode/app/api/repositories/\\\\[id\\\\]/members)",
       "Bash(xargs cat)",
-      "Bash(mkdir -p \"/Users/yugo_suzuki/GCH26-3/GCH26-3/clearcode/app/api/repositories/[id]/leave\")"
+      "Bash(mkdir -p \"/Users/yugo_suzuki/GCH26-3/GCH26-3/clearcode/app/api/repositories/[id]/leave\")",
+      "Bash(git pull *)",
+      "Bash(git stash *)"
     ],
     "additionalDirectories": [
       "/Users/yugo_suzuki/GCH26-3/GCH26-3/clearcode/app/api/repositories/[id]"
