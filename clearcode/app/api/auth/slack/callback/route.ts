@@ -24,17 +24,23 @@ export async function GET(request: NextRequest) {
 
     const encryptedToken = await encrypt(tokenData.access_token)
 
-    // slack_integrationsに保存（チャンネルは後で設定）
     if (state) {
+      // 既存のチャンネル設定を引き継ぐ
+      const { data: existing } = await supabaseAdmin
+        .from('slack_integrations')
+        .select('channel_id, channel_name')
+        .eq('repository_id', state)
+        .single()
+
       const { error: upsertError } = await supabaseAdmin.from('slack_integrations').upsert(
         {
           repository_id: state,
           workspace_id: tokenData.team.id,
           workspace_name: tokenData.team.name,
-          channel_id: '',
-          channel_name: '',
+          channel_id: existing?.channel_id ?? '',
+          channel_name: existing?.channel_name ?? '',
           access_token_encrypted: encryptedToken,
-          is_active: false,
+          is_active: !!(existing?.channel_id),
         },
         { onConflict: 'repository_id' }
       )
