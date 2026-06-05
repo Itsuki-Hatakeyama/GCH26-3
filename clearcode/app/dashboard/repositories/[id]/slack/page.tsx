@@ -29,8 +29,12 @@ function SlackPageContent() {
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [slackMethod, setSlackMethod] = useState<'oauth' | 'bottoken'>('oauth')
+  const [oauthError, setOauthError] = useState<string | null>(null)
 
   useEffect(() => {
+    const err = searchParams.get('error')
+    if (err) setOauthError(err)
+
     const saved = localStorage.getItem('slack_method') as 'oauth' | 'bottoken' | null
     if (saved) setSlackMethod(saved)
 
@@ -87,6 +91,14 @@ function SlackPageContent() {
       </div>
       <h1 className="text-xl font-semibold mb-1">Slack連携</h1>
       <p className="text-sm text-neutral-500 mb-8">通知を送るワークスペースとチャンネルを設定してください。</p>
+
+      {oauthError && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+          <p className="font-medium mb-1">OAuth連携に失敗しました</p>
+          <p className="text-xs font-mono break-all">{oauthError}</p>
+          <p className="text-xs mt-2 text-red-500">api.slack.com のアプリ設定で Redirect URL と Bot Token Scopes を確認してください。</p>
+        </div>
+      )}
 
       {!integration ? (
         /* Phase A: 未連携 */
