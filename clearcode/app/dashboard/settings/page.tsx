@@ -22,7 +22,7 @@ export default function SettingsPage() {
           ].map((step, i, arr) => (
             <div key={i} className="flex gap-4 relative">
               <div className="flex flex-col items-center">
-                <div className="w-6 h-6 rounded-full bg-gray-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-xs font-bold flex items-center justify-center shrink-0 z-10">
+                <div className="w-6 h-6 rounded-full bg-gray-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-xs font-bold flex items-center justify-center shrink-0">
                   {i + 1}
                 </div>
                 {i < arr.length - 1 && (
