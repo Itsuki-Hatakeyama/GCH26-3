@@ -64,7 +64,7 @@ export async function processCommit(repositoryId: string, rawCommit: RawCommit):
         code_explanation: summary.code_explanation,
         message_quality_score: summary.message_quality_score,
         message_quality_feedback: summary.message_quality_feedback,
-        llm_model: 'gemini-2.0-flash',
+        llm_model: 'gemini-1.5-flash',
       },
       { onConflict: 'commit_id' }
     )

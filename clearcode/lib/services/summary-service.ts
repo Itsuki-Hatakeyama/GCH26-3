@@ -5,7 +5,7 @@ import { buildQualityScorePrompt } from '@/lib/prompts/quality-score'
 import { buildCategorizePrompt, type ChangeCategory } from '@/lib/prompts/categorize-change'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
-const MODEL = 'gemini-2.0-flash'
+const MODEL = 'gemini-1.5-flash'
 
 // 429時にretryDelay分待ってリトライ（最大3回）
 async function generate(prompt: string, retries = 3): Promise<string> {
