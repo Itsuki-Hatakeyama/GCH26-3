@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { ExternalLink, Copy, Check, RefreshCw, Send, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -118,61 +118,6 @@ const EXT_BADGE: Record<string, { bg: string; text: string }> = {
 }
 const EXT_BADGE_DEFAULT = { bg: "bg-neutral-700", text: "text-neutral-400" }
 
-function ImageUpload({
-  value,
-  onChange,
-  label,
-}: {
-  value: string | null
-  onChange: (v: string | null) => void
-  label: string
-}) {
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => onChange(reader.result as string)
-    reader.readAsDataURL(file)
-  }
-
-  return (
-    <div className="space-y-1.5">
-      <p className="text-xs font-medium text-neutral-500">{label}</p>
-      {value ? (
-        <div className="relative">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={value}
-            alt={label}
-            className="rounded-lg border border-neutral-200 w-full object-contain max-h-48 bg-neutral-50"
-          />
-          <button
-            onClick={() => {
-              onChange(null)
-              if (inputRef.current) inputRef.current.value = ""
-            }}
-            className="absolute top-1 right-1 bg-white/90 rounded-full w-5 h-5 flex items-center justify-center text-neutral-500 hover:text-red-500 text-xs border border-neutral-200 transition-colors"
-          >
-            ✕
-          </button>
-        </div>
-      ) : (
-        <label className="flex flex-col items-center justify-center border-2 border-dashed border-neutral-200 rounded-lg p-4 cursor-pointer hover:border-neutral-400 hover:bg-neutral-50 transition-colors">
-          <span className="text-xs text-neutral-400">クリックして画像を選択</span>
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleChange}
-          />
-        </label>
-      )}
-    </div>
-  )
-}
 
 function DiffFileBlock({ file }: { file: DiffFile }) {
   const [collapsed, setCollapsed] = useState(false)
@@ -280,8 +225,6 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
   const [regenerated, setRegenerated] = useState(false);
   const [notifying, setNotifying] = useState(false);
   const [notifyResult, setNotifyResult] = useState<string | null>(null);
-  const [beforeImage, setBeforeImage] = useState<string | null>(null);
-  const [afterImage, setAfterImage] = useState<string | null>(null);
 
   const fetchCommit = useCallback(async () => {
     const [commitRes, diffRes] = await Promise.all([
@@ -338,10 +281,7 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
       const res = await fetch(`/api/repositories/${repositoryId}/commits/${sha}/notify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          beforeImage: beforeImage ?? undefined,
-          afterImage: afterImage ?? undefined,
-        }),
+        body: JSON.stringify({}),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -390,18 +330,6 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
   const hasTech =
     (s?.added_technologies?.length ?? 0) > 0 ||
     (s?.removed_technologies?.length ?? 0) > 0;
-
-  const score = s?.message_quality_score ?? null;
-  const scoreColor =
-    score === null ? "text-gray-400"
-    : score >= 80 ? "text-green-600"
-    : score >= 60 ? "text-yellow-600"
-    : "text-red-600";
-  const scoreBg =
-    score === null ? "bg-gray-50 border-gray-200"
-    : score >= 80 ? "bg-green-50 border-green-200"
-    : score >= 60 ? "bg-yellow-50 border-yellow-200"
-    : "bg-red-50 border-red-200";
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "summary", label: "ひとことで" },
@@ -518,18 +446,6 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
                   <p className="text-sm text-neutral-400">このコミットに画面の変更はありません</p>
                 )}
 
-                <div className="border-t border-neutral-100 pt-4 space-y-3">
-                  <p className="text-xs font-semibold text-neutral-600">スクリーンショット（Slack送信時に添付されます）</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <ImageUpload value={beforeImage} onChange={setBeforeImage} label="変更前" />
-                    <ImageUpload value={afterImage} onChange={setAfterImage} label="変更後" />
-                  </div>
-                  {(beforeImage || afterImage) && (
-                    <p className="text-xs text-green-600">
-                      画像がセットされました。「Slackに送信」で一緒に送信されます。
-                    </p>
-                  )}
-                </div>
               </div>
             )}
 
@@ -606,27 +522,6 @@ export default function CommitDetailClient({ repositoryId, sha, repositoryName }
               <TechBadge key={`rm-${i}`} name={t.name} type="removed" />
             ))}
           </div>
-        </div>
-      )}
-
-      {/* 精度評価 */}
-      {score !== null && (
-        <div className={`rounded-xl border p-5 space-y-3 ${scoreBg}`}>
-          <h2 className="text-sm font-semibold text-neutral-900">コミットメッセージの精度評価</h2>
-          <div className="flex items-baseline gap-1">
-            <span className={`text-5xl font-bold ${scoreColor}`}>{score}</span>
-            <span className="text-neutral-400 text-lg">/ 100</span>
-          </div>
-          {s?.message_quality_feedback && (
-            <p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">
-              {s.message_quality_feedback}
-            </p>
-          )}
-          {score < 60 && (
-            <p className="text-xs text-neutral-500">
-              スコアが低い場合は「要約を再生成」でより良いメッセージの提案が得られます
-            </p>
-          )}
         </div>
       )}
 
