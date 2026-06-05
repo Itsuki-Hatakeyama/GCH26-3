@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Trash2 } from 'lucide-react'
+import { Trash2, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface Repository {
@@ -21,6 +21,7 @@ export default function DashboardPage() {
   const [repos, setRepos] = useState<Repository[]>([])
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [leavingId, setLeavingId] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/repositories')
@@ -28,6 +29,21 @@ export default function DashboardPage() {
       .then((d) => setRepos(d.repositories ?? []))
       .finally(() => setLoading(false))
   }, [])
+
+  const handleLeave = async (e: React.MouseEvent, repoId: string, repoName: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!confirm(`「${repoName}」から退出しますか？`)) return
+    setLeavingId(repoId)
+    try {
+      const res = await fetch(`/api/repositories/${repoId}/leave`, { method: 'DELETE' })
+      if (res.ok) {
+        setRepos((prev) => prev.filter((r) => r.id !== repoId))
+      }
+    } finally {
+      setLeavingId(null)
+    }
+  }
 
   const handleDelete = async (e: React.MouseEvent, repoId: string, repoName: string) => {
     e.preventDefault()
@@ -82,13 +98,23 @@ export default function DashboardPage() {
                         {repo.unread_count}
                       </span>
                     )}
-                    {repo.is_owner && (
+                    {repo.is_owner ? (
                       <button
                         onClick={(e) => handleDelete(e, repo.id, repo.name)}
                         disabled={deletingId === repo.id}
                         className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-red-50 text-neutral-300 hover:text-red-500"
+                        title="リポジトリを削除"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={(e) => handleLeave(e, repo.id, repo.name)}
+                        disabled={leavingId === repo.id}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-orange-50 text-neutral-300 hover:text-orange-500"
+                        title="リポジトリから退出"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
